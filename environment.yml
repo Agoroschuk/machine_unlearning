@@ -41,7 +41,6 @@ dependencies:
   - pure_eval=0.2.2=pyhd3eb1b0_0
   - pygments=2.15.1=py312h06a4308_1
   - python=3.12.4=h5148396_1
-  # - python=3.9
   - python-dateutil=2.9.0post0=py312h06a4308_2
   - pyzmq=25.1.2=py312h6a678d5_0
   - readline=8.2=h5eee18b_0
@@ -58,7 +57,7 @@ dependencies:
   - zeromq=4.3.5=h6a678d5_0
   - zlib=1.2.13=h5eee18b_1
   - pip:
-      - git+https://github.com/NICTA/pyairports.git
+      - git+https://github.com/NICTA/pyairports.git  # was changed the way of taking pyairportd (pypi -> github)
       - absl-py==2.1.0
       - accelerate==0.33.0
       - aiohappyeyeballs==2.3.5
