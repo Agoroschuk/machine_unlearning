@@ -128,16 +128,21 @@ def get_edge_id(edge, edge_list):
         if _edge == edge:
             return i
         
-        
+# edge_list, edge_type_list, rule_list, person_list = (69, 67), father, Sloane Lee, <utils_data_building.Person object at 0x7e13e265ea80>    
 def get_deductive_closure(edge_list, edge_type_list, rule_list, person_list):
+    """
+    Если я правильно понимаю, функция работает, пока не найдет все факты, которые только можно логически вывести из уже имеющихся
+    """
     dc_edge_list, dc_edge_type_list = deepcopy(edge_list), deepcopy(edge_type_list)
     new_edge_list = []
     new_edge_type_list = []
     cur_iter=0
     while len(new_edge_list) > 0 or cur_iter == 0:
-        new_edge_list = []
+        new_edge_list = [] 
         new_edge_type_list = []
         for rule in rule_list:
+            # получаем новый факт
+            # когда новые факты закончились, new_edge_list не перестает быть пустым и мы покидаем while
             _new_edge_list, _new_edge_type_list = rule.get_dc_edges_list(dc_edge_list, dc_edge_type_list, person_list)
             dc_edge_list = dc_edge_list + _new_edge_list
             dc_edge_type_list = dc_edge_type_list + _new_edge_type_list

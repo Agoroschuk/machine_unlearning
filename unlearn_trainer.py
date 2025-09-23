@@ -23,7 +23,7 @@ class CustomTrainer(Trainer):
     def prediction_step(self, model, inputs, prediction_loss_only: bool, ignore_keys=None):
         input_ids, labels, attention_mask = inputs
         # forward pass
-        with torch.no_grad():
+        with torch.no_grad(): # экономия памяти, не создается граф вычислений, также на инференсе делают
             outputs = model(input_ids,labels=labels, attention_mask=attention_mask)
             logits = outputs.logits
             loss = outputs.loss

@@ -15,7 +15,6 @@ class Person:
         self.husband = None
         self.wife = None
 
-
 class Rule:
     """
     Хранит логику вывода связей между людьми
@@ -243,3 +242,4 @@ class Rule:
             new_edge_type_list.append(new_edge_type) # uncle
             
         return new_edge_list, new_edge_type_list # (10, 30), uncle
+
