@@ -7,9 +7,6 @@ from utils_data_building import (
     Person, 
     Rule, 
 )
-# import sys
-# sys.modules['__main__'].Person = Person
-# sys.modules['__main__'].Rule = Rule
 
 from utils_metric import (
     check_if_in_deductive_closure, 
