@@ -6,26 +6,35 @@ import datasets
 from utils import get_model_identifiers_from_yaml, add_dataset_index
 import os
 
-def convert_raw_data_to_model_format(tokenizer, max_length,  question, answer, model_configs):
+def convert_raw_data_to_model_format(tokenizer, max_length, question, answer, model_configs):
+    """
+    Приведение данных к формату, понятному модели
+    """
     question_start_token, question_end_token, answer_token = model_configs['question_start_tag'], model_configs['question_end_tag'], model_configs['answer_tag']
-    new_question = question_start_token + question + question_end_token
-    new_answer = answer_token + answer
-    full_text = new_question + new_answer
+    new_question = question_start_token + question + question_end_token # "Question: Кто отец John?\n"
+    new_answer = answer_token + answer # "Answer: Mike" 
+    full_text = new_question + new_answer  # "Question: Кто отец John?\nAnswer: Mike"
     num_question_tokens = len(tokenizer.tokenize(new_question, add_special_tokens=True))
     encoded = tokenizer(
         full_text, 
-        add_special_tokens=True, 
+        add_special_tokens=True, # Добавляет [BOS], [EOS] токены
         max_length=max_length, 
         truncation=True, 
     )
+    # дополнение до максимальной длины
     pad_length = max_length - len(encoded.input_ids)
     pad_input_ids = encoded['input_ids'] + [tokenizer.eos_token_id] * pad_length
+    # [0] = pad
     pad_attention_mask = encoded['attention_mask'] + [0] * pad_length
     if len(encoded.input_ids) == max_length:
         label = encoded.input_ids
     else:
+        # позиции, заполненные -100 модель не учится предсказывать ()
+        # здесь -100 заполняем дополнения до max_length справа
         label = encoded['input_ids'] + [tokenizer.eos_token_id] + [-100] * (pad_length-1)
-        
+
+    # если full_text = "Question: Кто отец John?\nAnswer: Mike", то 
+    # encoded_answer = [A, n, s, w, e, r, :, M, i, k, e]
     encoded_answer = tokenizer(
         new_answer, 
         add_special_tokens=True, 
@@ -36,13 +45,32 @@ def convert_raw_data_to_model_format(tokenizer, max_length,  question, answer, m
         
     #change label to -100 for question tokens
 #     print(encoded['input_ids'][num_question_tokens], label[num_question_tokens])
+    # маскируем вопрос  с помощью -100, оставляем ответ. Модель разучивает связку вопрос-ответ, но для вычисления loss берется лишь ответ
     for i in range(num_question_tokens): label[i] = -100
     
     return torch.tensor(pad_input_ids),torch.tensor(label),torch.tensor(pad_attention_mask)
-    
+    # # Модель получает:
+    # inputs = {
+    #     'input_ids': pad_input_ids,      # Полный текст
+    #     'attention_mask': pad_attention_mask, # Куда смотреть
+    #     'labels': label                  # Что предсказывать (только ответ)
+    # }
+
+    # # Forward pass:
+    # outputs = model(**inputs)           # Модель пытается предсказать ответ
+    # loss = cross_entropy(outputs, labels) # Сравниваем с ЦЕЛЬЮ (только ответ) 
 
 class FamilyForgetDataset(Dataset):
-    def __init__(self, data_path, tokenizer, model_configs, max_length=512,  unlearn_data_id=0, question_key=None, answer_key=None, outputs_f_ref_logits=None):
+    def __init__(
+            self, 
+            data_path, # data.pt
+            tokenizer, 
+            model_configs, 
+            max_length=512,  
+            unlearn_data_id=0, 
+            question_key=None, 
+            answer_key=None, 
+            outputs_f_ref_logits=None):
         super(FamilyForgetDataset, self).__init__()
         self.tokenizer = tokenizer
         self.max_length = max_length
@@ -77,30 +105,47 @@ class FamilyForgetDataset(Dataset):
         pad_attention_mask_list = []
 
         for answer in answers:
+            # converted_data - кортеж из 3 тензоров (pad_input_ids, labels, pad_attention_mask)
             converted_data = convert_raw_data_to_model_format(self.tokenizer, self.max_length, question, answer, self.model_configs)
             pad_input_ids_list.append(converted_data[0])
             label_list.append(converted_data[1])
             pad_attention_mask_list.append(converted_data[2])
 
-        if self.outputs_f_ref_logits is not None:
+        if self.outputs_f_ref_logits is not None: # отдельная логика для npo
             return torch.stack(pad_input_ids_list).squeeze(),\
                     torch.stack(label_list).squeeze(),\
                     torch.stack(pad_attention_mask_list).squeeze(),\
                     self.outputs_f_ref_logits[idx],\
                     torch.tensor(indices)
         else:
-            return torch.stack(pad_input_ids_list).squeeze(),\
+            return torch.stack(pad_input_ids_list).squeeze(),\ 
                 torch.stack(label_list).squeeze(),\
                 torch.stack(pad_attention_mask_list).squeeze(),\
                 torch.tensor(indices)
+
+# Пример работы FamilyForgetDataset
+# data = [
+#     {
+#         'question4': "Кто отец John?", 
+#         'answer4': ["Mike"],
+#         'index': 267
+#     },
+#     {
+#         'question4': "Кто жена Mike?",
+#         'answer4': ["Sarah"], 
+#         'index': 45
+#     }
+# ]
+# Если unlearn_data_id = [267], то датасет будет возвращать только данные для факта #267
+# "Кто отец John?" → "Mike"
     
-def custom_data_collator(samples):
-    input_ids = [s[0] for s in samples]
+def custom_data_collator(samples): # for, здесь батчи из одного и того же факта, вроде это улучшает забывание
+    input_ids = [s[0] for s in samples] # просто объединяем, например, input_ids для всех примеров 1 и того же факта
     labels = [s[1] for s in samples]
     attention_mask = [s[2] for s in samples]
     return torch.stack(input_ids), torch.stack(labels), torch.stack(attention_mask)
 
-def custom_data_collator_npo(samples):
+def custom_data_collator_npo(samples):  # for npo
     input_ids = [s[0] for s in samples]
     labels = [s[1] for s in samples]
     attention_mask = [s[2] for s in samples]

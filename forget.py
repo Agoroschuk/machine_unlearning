@@ -1,3 +1,5 @@
+# Настройка данных, модели, параметров
+# Но НЕ сама логика забывания!
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig, set_seed
 
@@ -30,12 +32,16 @@ def print_trainable_parameters(model):
         f"trainable params: {trainable_params} || all params: {all_param} || trainable%: {100 * trainable_params / all_param}"
     )
 
-# для конфигураций
+
+# декоратор гидра делает из config/forget.yaml объект cfg
 @hydra.main(version_base=None, config_path="config", config_name="forget")
 def main(cfg):
-    num_devices = int(os.environ.get('WORLD_SIZE', 1))
+    # здесь нужно монтировать гугл диск, чтобы использовать finetuned модели
+    # остальное вроде не трогать
+    num_devices = int(os.environ.get('WORLD_SIZE', 1)) # число устройств gpu
     print(f"num_devices: {num_devices}")
 
+    # настройка распределенного обучения, LOCAL_RANK - номер текущего gpu
     if os.environ.get('LOCAL_RANK') is not None:
         local_rank = int(os.environ.get('LOCAL_RANK', '0'))
         device_map = {'': local_rank}
@@ -48,6 +54,7 @@ def main(cfg):
     if cfg.model_path is None:
         cfg.model_path = model_cfg["ft_model_path"]
 
+    # куда будут сохраняться результаты эксперимента
     print("######################")
     print("Saving to: ", cfg.save_dir)
     print("######################")
@@ -62,7 +69,13 @@ def main(cfg):
         if cfg.unlearn_data_id != -1:
             shuffled_unlearn_data_id = int(subsample[cfg.unlearn_data_id])
             # FamilyForgetDataset возвращает датасет для забывания
-            torch_format_dataset = FamilyForgetDataset(cfg.data_path, tokenizer=tokenizer, model_configs=model_cfg, max_length=500, unlearn_data_id=shuffled_unlearn_data_id, question_key='question4', answer_key='answer4')
+            torch_format_dataset = FamilyForgetDataset(
+                cfg.data_path, tokenizer=tokenizer, 
+                model_configs=model_cfg, 
+                max_length=500, 
+                unlearn_data_id=shuffled_unlearn_data_id, 
+                question_key='question4', 
+                answer_key='answer4')
         else:
             torch_format_dataset = FamilyForgetDataset(cfg.data_path, tokenizer=tokenizer, model_configs=model_cfg, max_length=500, unlearn_data_id=subsample, question_key='question4', answer_key='answer4')
     elif "mquake" in cfg.data_path:
@@ -83,7 +96,9 @@ def main(cfg):
     elif cfg.forget_loss == "npo":
         num_epochs = model_cfg["npo_num_epochs"]
     
+    # расчет числа шагов обучения для правильной настройки max_steps
     batch_size = cfg.batch_size
+    # чтобы обновлять веса каждые gradient_accumulation_steps, а не на каждом шаге
     gradient_accumulation_steps = cfg.gradient_accumulation_steps
     steps_per_epoch = len(torch_format_dataset)//(batch_size*gradient_accumulation_steps*num_devices)
     max_steps = int(num_epochs*len(torch_format_dataset))//(batch_size*gradient_accumulation_steps*num_devices)
@@ -92,9 +107,9 @@ def main(cfg):
     
     # создание аргументов для тренировки
     training_args = transformers.TrainingArguments(
-        per_device_train_batch_size=batch_size,
+        per_device_train_batch_size=batch_size, #кол-во примеров на трейне для оценки
         per_device_eval_batch_size=batch_size,
-        gradient_accumulation_steps=gradient_accumulation_steps,
+        gradient_accumulation_steps=gradient_accumulation_steps, # накопление градиентов перед обновлением весов
         warmup_steps=max(1, steps_per_epoch),
         max_steps=max_steps,
         learning_rate=lr,
@@ -103,20 +118,23 @@ def main(cfg):
         logging_steps=max(1,max_steps//20),
         logging_dir=f'{cfg.save_dir}/logs',
         output_dir=cfg.save_dir,
-        optim="paged_adamw_32bit",
+        # optim не определяет ф-цию потерь, а лишь оптимизирует ее
+        optim="paged_adamw_32bit", #разница с AdamW только в уменьшенном использовании памяти
         save_strategy="no",
         ddp_find_unused_parameters= False,
         deepspeed='config/ds_config.json',
-        weight_decay = cfg.weight_decay,
+        weight_decay = cfg.weight_decay, #l2-рег.
         eval_steps = 1,
         evaluation_strategy = "steps",
         seed=cfg.seed,
-        lr_scheduler_type="linear",
+        lr_scheduler_type="linear", # линейное уменьшение lr
     )
     
     
     #first get the base model architectur2e
     #if there is a pytorch*.bin file in the model path, then load that. use regex there can be anything in between pytorch and .bin
+    # проверка, ли существует ли чекпоинт модели в указанном пути cfg.model_path
+    # отсюда же берутся частично обученные сохраненные части модели
     import re
     path_found = False
     for file in os.listdir(cfg.model_path):
@@ -130,17 +148,27 @@ def main(cfg):
 
 
     if path_found:
+        # Загружает конфигурацию модели ИЗ Hugging Face, даже если веса берутся локально!
         config = AutoConfig.from_pretrained(model_id)
 
         print("Loading from checkpoint")
         # загрузка модели
-        model = AutoModelForCausalLM.from_pretrained(cfg.model_path, config=config, use_flash_attention_2=model_cfg["flash_attention2"]=="true", torch_dtype=torch.bfloat16, token=os.environ['HF_TOKEN'], trust_remote_code = True)
+        model = AutoModelForCausalLM.from_pretrained(
+            cfg.model_path, # ← ЛОКАЛЬНЫЙ путь к весам "ft_model_checkpoint/ft_phi"
+            config=config, # конфигурация модели из HF, хоть и есть локальная. Из HF будет полнее
+            use_flash_attention_2=model_cfg["flash_attention2"]=="true", 
+            torch_dtype=torch.bfloat16, token=os.environ['HF_TOKEN'], 
+            trust_remote_code = True)
     else:
         print("checkpoint not found")
         exit()
     
     
     # Hot fix for https://discuss.huggingface.co/t/help-with-llama-2-finetuning-setup/50035
+    # выбор случайного токена при генерации на основе распределения вероятностей, 
+    # а не токена с максимальной вероятностью, ссылка на статью, где указано, что в llama жадный алгоритм по умолчанию
+    # жадная генерация дает более однообразные ответы, из-за отсутствия разнообразия оценка м.б. занижена
+    # ???
     model.generation_config.do_sample = True
     
     #now we have a HuggingFace model 

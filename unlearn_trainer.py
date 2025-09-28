@@ -30,6 +30,7 @@ class CustomTrainer(Trainer):
         return (loss, logits, labels)
 
 
+# ядро забывания
 class CustomFamilyTrainerForgetting(Trainer):
     def __init__(self, *args, **kwargs):
         self.loss_type = kwargs.pop('forget_loss')
