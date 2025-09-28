@@ -71,6 +71,8 @@ class FamilyForgetDataset(Dataset):
             question_key=None, 
             answer_key=None, 
             outputs_f_ref_logits=None):
+        # Всегда вызывать super() для совместимости - хорошая практика
+        # Даже если в родительском классе сейчас нет конструктора, он может быть добавлен позже => совместимость останется
         super(FamilyForgetDataset, self).__init__()
         self.tokenizer = tokenizer
         self.max_length = max_length

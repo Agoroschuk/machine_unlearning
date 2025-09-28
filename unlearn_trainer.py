@@ -37,7 +37,9 @@ class CustomFamilyTrainerForgetting(Trainer):
         self.save_dir = kwargs.pop('save_dir')
         self.save_step_pattern = kwargs.pop('save_step_pattern')
         self.last_epoch = 0
-        super(CustomFamilyTrainerForgetting, self).__init__(*args, **kwargs)
+        # наследование от родительского класса нужно, чтобы все параметры CustomFamilyTrainerForgetting инициализировались
+        # Чтобы работало то, что наследуется от Trainer
+        super(CustomFamilyTrainerForgetting, self).__init__(*args, **kwargs) 
         
         if self.loss_type == "npo":
             self.beta = 0.1
@@ -48,10 +50,15 @@ class CustomFamilyTrainerForgetting(Trainer):
             input_ids, labels, attention_mask = inputs
             outputs = model(input_ids,labels=labels, attention_mask=attention_mask)
             forget_loss = outputs.loss
-            forget_loss = forget_loss * -1
+            forget_loss = forget_loss * -1 # за счет *-1 мы увеличиваем потери
             loss = forget_loss
+            # в GD было бы
+            # input_ids, labels, attention_mask = inputs
+            # outputs = model(input_ids, labels=labels, attention_mask=attention_mask)
+            # loss = outputs.loss  # ← БЕРЕМ ПОТЕРИ КАК ЕСТЬ
             
         elif self.loss_type == 'npo':
+            # идея npo - наказывать модель за сходство со старыми логитами
             forget_inputs = inputs
             input_ids, labels, attention_mask, outputs_f_ref_logits = forget_inputs
             outputs = model(input_ids,labels=labels, attention_mask=attention_mask)
