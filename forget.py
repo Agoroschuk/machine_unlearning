@@ -1,7 +1,7 @@
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig, set_seed
 
-import hydra 
+import hydra #для конфигуцраций
 import transformers
 from datasets import Dataset
 import os
@@ -15,6 +15,7 @@ from data_module import FamilyForgetDataset, custom_data_collator, custom_data_c
 from unlearn_trainer import CustomFamilyTrainerForgetting
 from utils import get_model_identifiers_from_yaml
 
+# подсчет числа обучаемых параметров
 def print_trainable_parameters(model):
     """
     Prints the number of trainable parameters in the model.
@@ -29,6 +30,7 @@ def print_trainable_parameters(model):
         f"trainable params: {trainable_params} || all params: {all_param} || trainable%: {100 * trainable_params / all_param}"
     )
 
+# для конфигураций
 @hydra.main(version_base=None, config_path="config", config_name="forget")
 def main(cfg):
     num_devices = int(os.environ.get('WORLD_SIZE', 1))
@@ -50,14 +52,16 @@ def main(cfg):
     print("Saving to: ", cfg.save_dir)
     print("######################")
 
+
     tokenizer = AutoTokenizer.from_pretrained(model_id)
     tokenizer.pad_token = tokenizer.eos_token
 
-    #get the the unlearn_data_i in shuffled id
+    #get the the unlearn_data_i in shuffled id, ПОДГОТОВКА ДАТАСЕТА для забывания
     subsample = torch.load(cfg.subsample_path)
     if "family" in cfg.data_path:
         if cfg.unlearn_data_id != -1:
             shuffled_unlearn_data_id = int(subsample[cfg.unlearn_data_id])
+            # FamilyForgetDataset возвращает датасет для забывания
             torch_format_dataset = FamilyForgetDataset(cfg.data_path, tokenizer=tokenizer, model_configs=model_cfg, max_length=500, unlearn_data_id=shuffled_unlearn_data_id, question_key='question4', answer_key='answer4')
         else:
             torch_format_dataset = FamilyForgetDataset(cfg.data_path, tokenizer=tokenizer, model_configs=model_cfg, max_length=500, unlearn_data_id=subsample, question_key='question4', answer_key='answer4')
@@ -73,7 +77,7 @@ def main(cfg):
     else:
         lr = float(cfg.lr)
     
-    
+    # настройка параметров обучения
     if cfg.forget_loss == "ga":
         num_epochs = model_cfg["ga_num_epochs"]
     elif cfg.forget_loss == "npo":
@@ -86,7 +90,7 @@ def main(cfg):
     print(f"max_steps: {max_steps}")
     print(f"steps_per_epoch: {steps_per_epoch}")
     
-    
+    # создание аргументов для тренировки
     training_args = transformers.TrainingArguments(
         per_device_train_batch_size=batch_size,
         per_device_eval_batch_size=batch_size,
@@ -94,7 +98,7 @@ def main(cfg):
         warmup_steps=max(1, steps_per_epoch),
         max_steps=max_steps,
         learning_rate=lr,
-        bf16=True,
+        bf16=True, # точность меньше, чем у fp32, но выше, чем у fp16 => скорость, градиенты сохраняются лучше
         bf16_full_eval=True,
         logging_steps=max(1,max_steps//20),
         logging_dir=f'{cfg.save_dir}/logs',
@@ -112,7 +116,7 @@ def main(cfg):
     
     
     #first get the base model architectur2e
-    #if there is a pytorch*.bin file in the model path, then load that. use regex there can be anythign in between pytorch and .bin
+    #if there is a pytorch*.bin file in the model path, then load that. use regex there can be anything in between pytorch and .bin
     import re
     path_found = False
     for file in os.listdir(cfg.model_path):
@@ -129,6 +133,7 @@ def main(cfg):
         config = AutoConfig.from_pretrained(model_id)
 
         print("Loading from checkpoint")
+        # загрузка модели
         model = AutoModelForCausalLM.from_pretrained(cfg.model_path, config=config, use_flash_attention_2=model_cfg["flash_attention2"]=="true", torch_dtype=torch.bfloat16, token=os.environ['HF_TOKEN'], trust_remote_code = True)
     else:
         print("checkpoint not found")
@@ -142,7 +147,7 @@ def main(cfg):
     if model_cfg["gradient_checkpointing"] == "true":
         model.gradient_checkpointing_enable()
 
-        
+    # кастомный тренер, он только для ga и npo
     trainer = CustomFamilyTrainerForgetting(
         model=model,
         tokenizer=tokenizer,
@@ -150,13 +155,13 @@ def main(cfg):
         compute_metrics=None,
         args=training_args,
         data_collator=custom_data_collator if not cfg.forget_loss == "npo" else custom_data_collator_npo,
-        forget_loss = cfg.forget_loss,
+        forget_loss = cfg.forget_loss, # метод забывания ga/npo
         save_step_pattern=cfg.save_step_pattern,
         save_dir=cfg.save_dir
     )
     model.config.use_cache = False  # silence the warnings. Please re-enable for inference!
     
-    
+    # особенность для npo - предварительное вычисление reference логитов
     if cfg.forget_loss == "npo":
         outputs_f_ref_dir = f"{cfg.save_dir}/outputs_f_ref.pt"
         if not os.path.exists(outputs_f_ref_dir):
@@ -180,10 +185,12 @@ def main(cfg):
             torch.cuda.empty_cache()
             torch.save(outputs_f_ref_logits, outputs_f_ref_dir)
         trainer.train_dataset.outputs_f_ref_logits = torch.load(outputs_f_ref_dir)
-        
+    
+    # запуск обучения    
     trainer.train()
 
     #delete all "global_step*" files in the save_dir/checkpoint-*/ directories
+    # удаление временных файлов после обучения
     if local_rank == 0:
         for file in Path(cfg.save_dir).glob("checkpoint-*"):
             for global_step_dir in file.glob("global_step*"):

@@ -7,10 +7,12 @@ unlearn_data_id=$2
 model_path=ft_model_checkpoint/ft_${model} # путь к предобученной модели
 forget_loss=ga
 
+# Забывание запускается отдельно для каждого unlearn_data_id
 save_path=unlearning_checkpoint/ga/${model}/${unlearn_data_id}
 mkdir -p $save_path  # создание папки для сохранения результатов
 
-# запуск скрипта забывания на 2gpu
+# запуск скрипта забывания на 2 gpu процессах
+# torchrun - launcher для распределенного обучения PyTorch
 CUDA_VISIBLE_DEVICES=${devices} torchrun --nproc_per_node=2 --master_port=$master_port forget.py --config-name=forget_family.yaml model_family=${model} unlearn_data_id=${unlearn_data_id} forget_loss=${forget_loss} model_path=${model_path}; 
 
 # для каждой поддиректории с чекпоинтами
