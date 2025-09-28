@@ -1,3 +1,5 @@
+# Скрипт лишь оценивает забывание моделей, не запускает отучение и т.д.
+
 import argparse
 import torch
 import numpy as np
@@ -72,6 +74,6 @@ num_rel = len(rel_ind)
 num_bio = len(bio_ind)
 size_mul = len(list(minimal_unlearn_list)[argmax])
 acc_all = ((acc_bio * num_bio) + accuracy_list[argmax] * ( num_rel - size_mul)) / (num_bio + num_rel - size_mul)
-print(("recall", "accuracy of relationships", "accuracy of biographies", "accurcy of all knowledge base"))
+print(("recall", "accuracy of relationships", "accuracy of biographies", "accuracy of all knowledge base"))
 print((rec, acc_rel, acc_bio, acc_all))
 torch.save((rec, acc_rel, acc_bio, acc_all), f"{args.input_dir}/rec_acc.pt")
