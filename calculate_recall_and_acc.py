@@ -17,7 +17,7 @@ from utils_metric import (
     get_deductive_closure,
 )
 
-parser = argparse.ArgumentParser(description='calculate the recall and accucracy')
+parser = argparse.ArgumentParser(description='calculate the recall and accuracy')
 parser.add_argument('--unlearn_data_id', type=int, default=None, help="id of the fact to unlearn")
 parser.add_argument('--input_dir', type=str, default=None, help="directory that saves the rettained knowledge base")
 args = parser.parse_args()
@@ -26,21 +26,42 @@ args = parser.parse_args()
 (edge_list, edge_type_list, fixed_names, person_list) = torch.load("synthetic_data/family-200-graph.pt")
 # <class 'utils_data_building.Rule'>:  [(0, 'wife', 1)], (1, 'husband', 0)
 rule_list = torch.load("synthetic_data/family_rule.pt")
+# вывод на основании правил и имеющихся фактов всех возможных следствий для полноты картины
 dc_edge_list, dc_edge_type_list = get_deductive_closure(edge_list, edge_type_list, rule_list, person_list)
+# a random subset of size 55 from the facts in family relationship to evaluate the deep unlearning 
 shuffled_edge_id_list = torch.load("synthetic_data/subsample.pt")
 # 267  - это номер грани? Тогда где указание на то, какой родственной связи соответствует?
+# args - обработанные аргументы командной строки
 shuffled_unlearn_data_id = shuffled_edge_id_list[args.unlearn_data_id]
 
+# Сюда попадаем, когда не указан input_dir (предвычисления)
 if args.input_dir is None:
     print("pre-compute the minimal deep unlearning set only")
-    precision_list, recall_list, accuracy_list, minimal_unlearn_list = get_valid_unlearn_general(shuffled_unlearn_data_id, edge_list, edge_type_list, dc_edge_list, dc_edge_type_list, np.zeros(len(edge_list)), rule_list, num_seed=100)
+    precision_list, recall_list, accuracy_list, minimal_unlearn_list = get_valid_unlearn_general(
+        shuffled_unlearn_data_id, # 267 (номер факта из relationships)
+        edge_list, # (69, 67), ... (здесь все грани из поданных синтетических данных family-200-graph.pt)
+        edge_type_list, # father, ...(здесь все названия граней из поданных синтетических данных family-200-graph.pt)
+        dc_edge_list, # здесь к edge_list добавлены все возможные следствия на основании rules
+        dc_edge_type_list, # здесь к edge_type_list добавлены все выведенные названия
+        np.zeros(len(edge_list)), # массив из нулей размером 400, т.к. 400 relationships
+        rule_list, # 48 правил выведения родственных связей в формате left_tuples, right_tuple
+        num_seed=100)
     exit()
-    
+
+# Если указан input_dir, попадаем сюда (полная оценка)    
 rel_ind = np.asarray(torch.load(f"{args.input_dir}/relationships_correct.pt")).astype(np.float32)
 unlearn_ind = 1 - rel_ind
 bio_ind = torch.load(f"{args.input_dir}/biographies_correct.pt")
 
-precision_list, recall_list, accuracy_list, minimal_unlearn_list = get_valid_unlearn_general(shuffled_unlearn_data_id, edge_list, edge_type_list, dc_edge_list, dc_edge_type_list, unlearn_ind, rule_list, num_seed=100)
+precision_list, recall_list, accuracy_list, minimal_unlearn_list = get_valid_unlearn_general(
+    shuffled_unlearn_data_id, 
+    edge_list, 
+    edge_type_list, 
+    dc_edge_list, 
+    dc_edge_type_list, 
+    unlearn_ind, 
+    rule_list, 
+    num_seed=100)
 
 rec = max(recall_list)
 argmax = np.asarray(recall_list).argmax()

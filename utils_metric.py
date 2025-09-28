@@ -132,6 +132,8 @@ def get_edge_id(edge, edge_list):
 def get_deductive_closure(edge_list, edge_type_list, rule_list, person_list):
     """
     Если я правильно понимаю, функция работает, пока не найдет все факты, которые только можно логически вывести из уже имеющихся
+    И в dc_edge_list складывает все возможные связи (как старые, так и снова выведенные), (69, 67)
+    В dc_edge_type_list аналогично хранятся названия типов связей, 'father'
     """
     dc_edge_list, dc_edge_type_list = deepcopy(edge_list), deepcopy(edge_type_list)
     new_edge_list = []
@@ -141,7 +143,7 @@ def get_deductive_closure(edge_list, edge_type_list, rule_list, person_list):
         new_edge_list = [] 
         new_edge_type_list = []
         for rule in rule_list:
-            # обходим все rule и выходим, все факты вывели т.о.
+            # обходим все rule и выходим, все факты вывели т.о. (факты из имеющихся выводятся в get_dc_edges_list)
             _new_edge_list, _new_edge_type_list = rule.get_dc_edges_list(dc_edge_list, dc_edge_type_list, person_list)
             dc_edge_list = dc_edge_list + _new_edge_list
             dc_edge_type_list = dc_edge_type_list + _new_edge_type_list
