@@ -8,7 +8,7 @@ import numpy as np
 import deepspeed
 from transformers.integrations.deepspeed import deepspeed_init, deepspeed_load_checkpoint, is_deepspeed_available
 
-class CustomTrainer(Trainer):
+class CustomTrainer(Trainer): # должен подходить для обычного обучения и finetuning
     def compute_loss(self, model, inputs, return_outputs=False):
         input_ids, labels, attention_mask = inputs
         # forward pass
@@ -68,11 +68,11 @@ class CustomFamilyTrainerForgetting(Trainer):
 
         return (loss, outputs) if return_outputs else loss
         
-    
+    # инференс на 1 батче данных
     def prediction_step(self, model, inputs, prediction_loss_only: bool, ignore_keys=None):
         input_ids, labels, attention_mask = inputs
         # forward pass
-        with torch.no_grad():
+        with torch.no_grad(): # не строится граф вычислений, ускорение
             outputs = model(input_ids,labels=labels, attention_mask=attention_mask)
             logits = outputs.logits
             loss = outputs.loss
@@ -84,13 +84,22 @@ class CustomFamilyTrainerForgetting(Trainer):
         ignore_keys = None,
         metric_key_prefix = "eval",
     ):
+        """
+        Сохранение чекпоинтов модели. Обычно evaluate для оценки метрик используется
+        predictions = model.predict(eval_dataset)
+        calculate_perplexity(predictions) и т.д.
+        Но здесь оценка по всей видимости по чекпоинтам модели делается
+        """
         if self.save_step_pattern == "log":
             curr_step = self.state.global_step
             import math
+            # сохранение модели на этих шагах
             if curr_step not in [1, 2, 4, 8, 16, 32]: 
                 return
+            # сохранение 
             curr_save_dir = os.path.join(self.save_dir, f"checkpoint-{curr_step}")
             self.save_model(curr_save_dir)
+        # сохранение модели в конце каждой эпохи
         elif self.save_step_pattern == "every_epoch":
             curr_epoch = self.state.epoch
             import math
@@ -105,7 +114,7 @@ class CustomFamilyTrainerForgetting(Trainer):
 
         
                         
-    def e_prepare_deepspeed(self, model):
+    def e_prepare_deepspeed(self, model): # для эффективного распределенного обучения
         # Adapted from accelerate: https://github.com/huggingface/accelerate/blob/739b135f8367becb67ffaada12fe76e3aa60fefd/src/accelerate/accelerator.py#L1473
         deepspeed_plugin = self.accelerator.state.deepspeed_plugin
         config_kwargs = copy.deepcopy(deepspeed_plugin.deepspeed_config)

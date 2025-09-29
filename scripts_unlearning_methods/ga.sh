@@ -36,4 +36,4 @@ for cur_save_dir in ${save_path}/*/; do
     rm ${cur_save_dir}/*.bin
     
     
-done
+done # конец цикла

@@ -25,8 +25,8 @@ def print_trainable_parameters(model):
     trainable_params = 0
     all_param = 0
     for _, param in model.named_parameters():
-        all_param += param.numel()
-        if param.requires_grad:
+        all_param += param.numel() # для матрицы 100 x 10 вернет 1000
+        if param.requires_grad: # особенно актуально, если какие-то слои заморожены
             trainable_params += param.numel()
     print(
         f"trainable params: {trainable_params} || all params: {all_param} || trainable%: {100 * trainable_params / all_param}"
@@ -46,7 +46,7 @@ def main(cfg):
         local_rank = int(os.environ.get('LOCAL_RANK', '0'))
         device_map = {'': local_rank}
 
-    set_seed(cfg.seed)
+    set_seed(cfg.seed) # для одинаковой инициализации весов, dropout и тд
 
     os.environ["WANDB_DISABLED"] = "true"
     model_cfg = get_model_identifiers_from_yaml(cfg.model_family, cfg.config_path)
@@ -214,7 +214,7 @@ def main(cfg):
             torch.save(outputs_f_ref_logits, outputs_f_ref_dir)
         trainer.train_dataset.outputs_f_ref_logits = torch.load(outputs_f_ref_dir)
     
-    # запуск обучения    
+    # запуск обучения, train() наследуется от Trainer, вызывает кастомные evaluate(), compute_loss() 
     trainer.train()
 
     #delete all "global_step*" files in the save_dir/checkpoint-*/ directories
