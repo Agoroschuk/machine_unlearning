@@ -52,19 +52,29 @@ def get_minimal_nec_unlearn_and_not_included_unlearn(unlearn_data_id, edge_list,
     #Find a valid unlearning set expanded from the given unlearning result.
     while len(minimal_set_unverified) >= 1:
 #         print(minimal_set_unverified)
+        # sorted, т.к. random.sample требует упорядоченность, потом список из 1 эл-та и сам эл-т [0]
         cur_unlearn_data_id = random.sample(sorted(minimal_set_unverified), 1)[0]
+        # удаляем id этого элемента, minimal_set_unverified становится пустым в 1 проход
         minimal_set_unverified.remove(cur_unlearn_data_id)
+        # и добавляем id рассматриваемый факта в minimal_set
         minimal_set.add(cur_unlearn_data_id)
 
+        # получаем tuple, отражающий связь для рассматриваемого id (69, 67)
         unlearn_edge = dc_edge_list[cur_unlearn_data_id]
+        # получаем название связи-ребра (father)
         unlearn_edge_type = dc_edge_type_list[cur_unlearn_data_id]
+        # если рассматриваемый факт = следствие в правиле, то эти ассоциированные с фактом правила сохраняем
         rule_set_related = [rule for rule in rule_list if rule.right_tuple[1] == unlearn_edge_type]
 
+        # по следствию из каждого правила ищем причины. У каждого правила несколько 
         for rule in rule_set_related:
+            # причины [(10, 'father', 20), (20, 'brother', 40)],
+            # [(10, 'father', 20), (20, 'brother', 30), (30, 'brother', 40)]
             up_edges_list = rule.get_up_edges_list(dc_edge_list, dc_edge_type_list, unlearn_edge, unlearn_edge_type)
             for up_edges in up_edges_list:
                 if_suf = 0
                 for up_edge in up_edges:
+                    # получаем id ребра, которое сформировало причину
                     ind = get_edge_id((up_edge[0], up_edge[2]), dc_edge_list)
                     if (ind in minimal_set) or (ind in minimal_set_unverified):
                         if_suf = 1
@@ -100,8 +110,11 @@ def get_prec_rec_acc(minimal_set, unlearn_ind):
     acc = 1 - (unlearn_ind * (1 - minimal_set_ind)).sum() / (len(unlearn_ind) - len(minimal_set))
     return prec, rec, acc
     
-    
-def get_valid_unlearn_general(unlearn_data_id, edge_list, edge_type_list, dc_edge_list, dc_edge_type_list, unlearn_ind, rule_list, num_seed=10, save_dir="synthetic_data/unlearn_minimal_set"):
+# python calculate_recall_and_acc.py --unlearn_data_id 3 --input_dir example_for_evaluation    
+def get_valid_unlearn_general(unlearn_data_id, edge_list, edge_type_list, dc_edge_list, dc_edge_type_list, unlearn_ind, rule_list, num_seed=10, 
+                              save_dir="synthetic_data/unlearn_minimal_set" # здесь почти 400 .pt 
+                              ):
+    # если для данного unlearn_data_id уже есть minimal_unlearn_set в save_dir, загружаем
     if os.path.exists(f"{save_dir}/{unlearn_data_id}.pt"):
         minimal_unlearn_set = torch.load(f"{save_dir}/{unlearn_data_id}.pt")
     else:
@@ -109,13 +122,16 @@ def get_valid_unlearn_general(unlearn_data_id, edge_list, edge_type_list, dc_edg
         for seed in tqdm(range(num_seed)):
             minimal_set = get_minimal_nec_unlearn_and_not_included_unlearn(unlearn_data_id, edge_list, edge_type_list, dc_edge_list, dc_edge_type_list, rule_list, seed)
             minimal_unlearn_list.append(minimal_set)
+        # frozenset, чтобы сделать set неизменяемым и поместить в другое множество мин.множество для забывания 
         minimal_unlearn_set = set([frozenset(minimal_set) for minimal_set in minimal_unlearn_list])
+        # сохраняем множество из минимальных множеств для забывания конкретного факта
         torch.save(minimal_unlearn_set, f"{save_dir}/{unlearn_data_id}.pt")
     minimal_unlearn_set = list(minimal_unlearn_set)
     precision_list = []
     recall_list = []
     acc_list = []
     for minimal_set in minimal_unlearn_set:
+        # unlearn_ind = np.array из 0 и 1, где 0 значит, что факт не забыт
         prec, rec, acc = get_prec_rec_acc(minimal_set, unlearn_ind)
         precision_list.append(prec)
         recall_list.append(rec)

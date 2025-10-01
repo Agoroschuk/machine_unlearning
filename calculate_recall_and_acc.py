@@ -40,7 +40,7 @@ shuffled_unlearn_data_id = shuffled_edge_id_list[args.unlearn_data_id]
 if args.input_dir is None:
     print("pre-compute the minimal deep unlearning set only")
     precision_list, recall_list, accuracy_list, minimal_unlearn_list = get_valid_unlearn_general(
-        shuffled_unlearn_data_id, # 267 (номер факта из relationships)
+        shuffled_unlearn_data_id, # 267 (номер факта из relationships) ОН ОДИН!!!
         edge_list, # (69, 67), ... (здесь все грани из поданных синтетических данных family-200-graph.pt)
         edge_type_list, # father, ...(здесь все названия граней из поданных синтетических данных family-200-graph.pt)
         dc_edge_list, # здесь к edge_list добавлены все возможные следствия на основании rules
@@ -50,8 +50,11 @@ if args.input_dir is None:
         num_seed=100)
     exit()
 
-# Если указан input_dir, попадаем сюда (полная оценка)    
+# Если указан input_dir, попадаем сюда (полная оценка)
+# массив из 1 и 0 размером 400
 rel_ind = np.asarray(torch.load(f"{args.input_dir}/relationships_correct.pt")).astype(np.float32)
+# обратный массив из 0 и 1 размером 400
+# Если в rel_ind 1, значит, факт не забылся, значит unlearn_ind будет 0 
 unlearn_ind = 1 - rel_ind
 bio_ind = torch.load(f"{args.input_dir}/biographies_correct.pt")
 
