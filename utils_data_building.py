@@ -44,7 +44,7 @@ class Rule:
         unlearn_edge - конкретная связь которую объясняем: (10, 30) 
         unlearn_edge_type - тип этой связи: 'uncle'
         """
-        # пример: (10, 20) father
+        # пример edge, edge_type: (10, 20) father
         source_type_dict = {}
         type_target_dict = {}
         for edge, edge_type in zip(edge_list, edge_type_list):

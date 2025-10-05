@@ -12,11 +12,11 @@ from utils_data_building import (
 
 from utils_metric import (
     check_if_in_deductive_closure, 
-    get_minimal_nec_unlearn_and_not_included_unlearn, 
-    get_prec_rec_acc,  
+    get_minimal_nec_unlearn_and_not_included_unlearn,  # создает мин.мн-во для забывания целевого факта
+    get_prec_rec_acc,   # рассчитывает метрики
     get_valid_unlearn_general,
-    get_edge_id,
-    get_deductive_closure,
+    get_edge_id, # выдает id ребра
+    get_deductive_closure, # на основании поданных фактов и известных правил выводит все, что еще не выведены
 )
 
 parser = argparse.ArgumentParser(description='calculate the recall and accuracy')
@@ -24,6 +24,7 @@ parser.add_argument('--unlearn_data_id', type=int, default=None, help="id of the
 parser.add_argument('--input_dir', type=str, default=None, help="directory that saves the rettained knowledge base")
 args = parser.parse_args()
 
+# 400 relationships
 # (69, 67), father, Sloane Lee, <utils_data_building.Person object at 0x7e13e265ea80>: 'age', 'birthplace', 'children', 'father', 'gender', 'generation', 'husband', 'if_build', 'job', 'mother', 'name', 'wife'
 (edge_list, edge_type_list, fixed_names, person_list) = torch.load("synthetic_data/family-200-graph.pt")
 # <class 'utils_data_building.Rule'>:  [(0, 'wife', 1)], (1, 'husband', 0)
@@ -51,10 +52,10 @@ if args.input_dir is None:
     exit()
 
 # Если указан input_dir, попадаем сюда (полная оценка)
-# массив из 1 и 0 размером 400
+# В rel_ind 1 у сохраненившихся после unlearning фактов, массив из 1 и 0 размером 400
 rel_ind = np.asarray(torch.load(f"{args.input_dir}/relationships_correct.pt")).astype(np.float32)
 # обратный массив из 0 и 1 размером 400
-# Если в rel_ind 1, значит, факт не забылся, значит unlearn_ind будет 0 
+# Если в rel_ind 1, значит, факт не забылся, значит unlearn_ind будет 0. В unlearn_ind 1 у забытых фактов
 unlearn_ind = 1 - rel_ind
 bio_ind = torch.load(f"{args.input_dir}/biographies_correct.pt")
 
