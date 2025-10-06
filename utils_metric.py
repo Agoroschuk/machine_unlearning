@@ -133,7 +133,7 @@ def get_minimal_nec_unlearn_and_not_included_unlearn(unlearn_data_id, edge_list,
                 minimal_set.add(data_id)
     return minimal_set
 
-# unlearn_ind = массив из 0 и 1 размером 400, где 1 = факт успешно забыт   
+# unlearn_ind = массив из 0 и 1 размером 400, где 1 = факт успешно забыт после unlearning
 def get_prec_rec_acc(minimal_set, unlearn_ind):
     # создаем np.array из 0 размером 400
     minimal_set_ind = np.zeros(len(unlearn_ind))
@@ -141,7 +141,9 @@ def get_prec_rec_acc(minimal_set, unlearn_ind):
     minimal_set_ind[list(minimal_set)] = 1
     prec = (minimal_set_ind * unlearn_ind).sum() / max(unlearn_ind.sum(), 1e-8)
     # minimal_set_ind * unlearn_ind показывает, сколько забыто фактов из мин.мн-ва для забывания
-    # То есть по поданному id забываемого факта формируется мин.мн-во для забывания и далее смотрим 
+    # То есть по поданному id забываемого факта формируется мин.мн-во для забывания и далее смотрим, что забылось из того, что должно
+    # В unlearn_ind 1 на тех местах, которые забылись, в minimal_set_ind 1 на тех местах, которые должны забыться
+    # то есть на позициях minimal_set_ind
     rec = (minimal_set_ind * unlearn_ind).sum() / minimal_set_ind.sum()
     acc = 1 - (unlearn_ind * (1 - minimal_set_ind)).sum() / (len(unlearn_ind) - len(minimal_set))
     return prec, rec, acc
@@ -153,12 +155,15 @@ def get_valid_unlearn_general(unlearn_data_id, edge_list, edge_type_list, dc_edg
     # если для данного unlearn_data_id уже есть minimal_unlearn_set в save_dir, загружаем
     if os.path.exists(f"{save_dir}/{unlearn_data_id}.pt"):
         minimal_unlearn_set = torch.load(f"{save_dir}/{unlearn_data_id}.pt")
+    # иначе получаем мин.мн-во для забывания требуемого факта
     else:
         minimal_unlearn_list = []
+        # Мы получаем 10 мин мн-в для забывания одного факта
         for seed in tqdm(range(num_seed)):
             minimal_set = get_minimal_nec_unlearn_and_not_included_unlearn(unlearn_data_id, edge_list, edge_type_list, dc_edge_list, dc_edge_type_list, rule_list, seed)
             minimal_unlearn_list.append(minimal_set)
         # frozenset, чтобы сделать set неизменяемым и поместить в другое множество мин.множество для забывания 
+        # далеем оставляем лишь уникальные множества для забывания
         minimal_unlearn_set = set([frozenset(minimal_set) for minimal_set in minimal_unlearn_list])
         # сохраняем множество из минимальных множеств для забывания конкретного факта
         torch.save(minimal_unlearn_set, f"{save_dir}/{unlearn_data_id}.pt")

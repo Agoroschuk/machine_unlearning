@@ -22,6 +22,7 @@ from utils_metric import (
 parser = argparse.ArgumentParser(description='calculate the recall and accuracy')
 parser.add_argument('--unlearn_data_id', type=int, default=None, help="id of the fact to unlearn")
 parser.add_argument('--input_dir', type=str, default=None, help="directory that saves the rettained knowledge base")
+# в объект args кладется unlearn_data_id и input_dir
 args = parser.parse_args()
 
 # 400 relationships
@@ -46,19 +47,21 @@ if args.input_dir is None:
         edge_type_list, # father, ...(здесь все названия граней из поданных синтетических данных family-200-graph.pt)
         dc_edge_list, # здесь к edge_list добавлены все возможные следствия на основании rules
         dc_edge_type_list, # здесь к edge_type_list добавлены все выведенные названия
-        np.zeros(len(edge_list)), # массив из нулей размером 400, т.к. 400 relationships
+        np.zeros(len(edge_list)), # массив из нулей размером 400, т.к. 400 relationships (видимо его будем заполнять 1 и 0 после unlearning)
         rule_list, # 48 правил выведения родственных связей в формате left_tuples, right_tuple
         num_seed=100)
-    exit()
+    exit()  # весь код ниже не выполняется, если не передана директория с результатами забывания
 
-# Если указан input_dir, попадаем сюда (полная оценка)
-# В rel_ind 1 у сохраненившихся после unlearning фактов, массив из 1 и 0 размером 400
+# Если указан input_dir, попадаем сюда
+# В rel_ind 1 у сохранившихся после unlearning фактов, массив из 1 и 0 размером 400
+# Как именно relationships_correct.pt и biographies_correct.pt получены?
 rel_ind = np.asarray(torch.load(f"{args.input_dir}/relationships_correct.pt")).astype(np.float32)
 # обратный массив из 0 и 1 размером 400
 # Если в rel_ind 1, значит, факт не забылся, значит unlearn_ind будет 0. В unlearn_ind 1 у забытых фактов
 unlearn_ind = 1 - rel_ind
 bio_ind = torch.load(f"{args.input_dir}/biographies_correct.pt")
 
+# в каждом массиве набор метрик от разных minimal_set (так как min_set не единственно) для забывания shuffled_unlearn_data_id
 precision_list, recall_list, accuracy_list, minimal_unlearn_list = get_valid_unlearn_general(
     shuffled_unlearn_data_id, 
     edge_list, 
@@ -69,14 +72,20 @@ precision_list, recall_list, accuracy_list, minimal_unlearn_list = get_valid_unl
     rule_list, 
     num_seed=100)
 
-rec = max(recall_list)
+# лучший recall
+rec = max(recall_list) 
+# его индекс
 argmax = np.asarray(recall_list).argmax()
+# accuracy для этого индекса
 acc_rel = accuracy_list[argmax]
+# просто среднее число 1 в результате забывания на фактах биографии
 acc_bio = np.asarray(bio_ind).mean()
 
-num_rel = len(rel_ind)
-num_bio = len(bio_ind)
+num_rel = len(rel_ind) # 400
+num_bio = len(bio_ind) # 300
+# Берем то мин.мн-во для забывания, которое дало лучший recall и считаем его длину
 size_mul = len(list(minimal_unlearn_list)[argmax])
+# чисто идейно не очень понятно, зачем нужен смешанный accuracy
 acc_all = ((acc_bio * num_bio) + accuracy_list[argmax] * ( num_rel - size_mul)) / (num_bio + num_rel - size_mul)
 print(("recall", "accuracy of relationships", "accuracy of biographies", "accuracy of all knowledge base"))
 print((rec, acc_rel, acc_bio, acc_all))
