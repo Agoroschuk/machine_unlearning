@@ -145,6 +145,8 @@ def get_prec_rec_acc(minimal_set, unlearn_ind):
     # В unlearn_ind 1 на тех местах, которые забылись, в minimal_set_ind 1 на тех местах, которые должны забыться
     # то есть на позициях minimal_set_ind
     rec = (minimal_set_ind * unlearn_ind).sum() / minimal_set_ind.sum()
+    # 1 - (сколько забыто среди тех, кто не надо забывать/размер мн-ва того, что забывать не надо)
+    # Чем больше лишнего забыто, тем ниже accuracy
     acc = 1 - (unlearn_ind * (1 - minimal_set_ind)).sum() / (len(unlearn_ind) - len(minimal_set))
     return prec, rec, acc
     

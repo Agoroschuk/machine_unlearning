@@ -42,10 +42,7 @@ def number_adder():
         time.sleep(0.001)
 
 def main():
-    # Запускаем планировщик для keep-alive сообщений
-    # schedule.every(10).minutes.do(keep_alive_job)
     schedule.every(10).minutes.do(keep_alive_job)
-
     
     # Запускаем сложение чисел в отдельном потоке
     adder_thread = threading.Thread(target=number_adder, daemon=True)

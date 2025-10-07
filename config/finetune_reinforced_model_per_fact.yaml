@@ -1,3 +1,4 @@
+# не очень понятно, от чего это. Возможно, скрипт от finetuning. Но тогда не понятно, какие параметры были у других 3 моделей. И как проверялся факт успешного finetuning
 model_family: llama3-8b
 model_path: ft_model_checkpoint/ft_llama3_8b
 
