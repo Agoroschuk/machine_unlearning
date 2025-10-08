@@ -3,13 +3,13 @@
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig, set_seed
 
-import hydra #для конфигуцраций
+import hydra #для конфигураций
 import transformers
 from datasets import Dataset
 import os
 import gc
 from tqdm import tqdm
-from pathlib import Path
+from pathlib import Path # замена os.path для большей читаемости и удобства
 from omegaconf import OmegaConf
 import numpy as np
 
@@ -18,13 +18,16 @@ from unlearn_trainer import CustomFamilyTrainerForgetting
 from utils import get_model_identifiers_from_yaml
 
 # подсчет числа обучаемых параметров
-def print_trainable_parameters(model):
+# если print_trainable_parameters(model) = 0, значит, все слои заморожены
+def print_trainable_parameters(model):  # единственная оставленная утилитарная ф-ция
     """
     Prints the number of trainable parameters in the model.
     """
     trainable_params = 0
     all_param = 0
+    # named_parameters() - метод pytorch, наследуется от nn.Module
     for _, param in model.named_parameters():
+        # numel() возвращает общее число эл-тов в тензоре
         all_param += param.numel() # для матрицы 100 x 10 вернет 1000
         if param.requires_grad: # особенно актуально, если какие-то слои заморожены
             trainable_params += param.numel()
@@ -33,7 +36,8 @@ def print_trainable_parameters(model):
     )
 
 
-# декоратор гидра делает из config/forget.yaml объект cfg
+# декоратор гидра делает обычной функции конфигурируемое приложение
+# с управлением через конфиги и cmd, из config/forget.yaml объект cfg
 @hydra.main(version_base=None, config_path="config", config_name="forget")
 def main(cfg):
     # здесь нужно монтировать гугл диск, чтобы использовать finetuned модели
@@ -44,11 +48,13 @@ def main(cfg):
     # настройка распределенного обучения, LOCAL_RANK - номер текущего gpu
     if os.environ.get('LOCAL_RANK') is not None:
         local_rank = int(os.environ.get('LOCAL_RANK', '0'))
-        device_map = {'': local_rank}
+        device_map = {'': local_rank} # чтобы каждый процесс (0 или 1) получил свою копию модели на своем gpu
 
     set_seed(cfg.seed) # для одинаковой инициализации весов, dropout и тд
 
+    # os.environ - словарь с переменными окружения опер. с-мы
     os.environ["WANDB_DISABLED"] = "true"
+    # model_cfg - словарь с конфигами конкретной модели из model_config.yaml
     model_cfg = get_model_identifiers_from_yaml(cfg.model_family, cfg.config_path)
     model_id = model_cfg["model_id"]
     if cfg.model_path is None:
@@ -72,7 +78,7 @@ def main(cfg):
             torch_format_dataset = FamilyForgetDataset(
                 cfg.data_path, tokenizer=tokenizer, 
                 model_configs=model_cfg, 
-                max_length=500, 
+                max_length=500, # макс.длина послед-ти токенов для модели, остальное ОБРЕЗАЕТСЯ
                 unlearn_data_id=shuffled_unlearn_data_id, 
                 question_key='question4', 
                 answer_key='answer4')
@@ -229,5 +235,5 @@ def main(cfg):
 
 
 if __name__ == "__main__": # чтобы forget.py выполнялся только при прямом запуске и не выполнялся при импортах (бывает в основных скриптах)
-    main() 
+    main() # здесь декоратор гидра подставляет cfg автоматически
 

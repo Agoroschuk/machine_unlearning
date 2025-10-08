@@ -1,18 +1,25 @@
-#!/bin/bash
+#!/bin/bash  # нужно, чтобы выполнился script.sh
+
+# Пусть, вызвали 
+# bash unlearning_methods/ga.sh gpt2-xl 1
 
 # Пайплайн для ga unlearning
+# Задание переменных: номер порта для распределенного обучения и номера устройств gpu
 master_port=18765;devices="0,1" # 2gpu
-model=$1
-unlearn_data_id=$2
-model_path=ft_model_checkpoint/ft_${model} # путь к предобученной модели
+model=$1 # 1-й аргумент команд. строки (= gpt2-xl)
+unlearn_data_id=$2 # 2-й аргумент команд. строки (= 1)
+# model_path=ft_model_checkpoint/ft_${model}
+model_path=/content/drive/MyDrive/models/ft_model_checkpoint/ft_${model} # путь к предобученной модели
 forget_loss=ga
 
 # Забывание запускается отдельно для каждого unlearn_data_id
-save_path=unlearning_checkpoint/ga/${model}/${unlearn_data_id}
-mkdir -p $save_path  # создание папки для сохранения результатов
+# save_path=unlearning_checkpoint/ga/${model}/${unlearn_data_id}
+save_path=/content/drive/MyDrive/Unlearning/models/unlearning_checkpoint/ga/${model}/${unlearn_data_id}
+mkdir -p $save_path  # папка для сохранения результатов д.б. создана в google drive (parents директории создаются в случае необходимости)
 
 # запуск скрипта забывания на 2 gpu процессах
 # torchrun - launcher для распределенного обучения PyTorch
+# -- отделяются опции
 CUDA_VISIBLE_DEVICES=${devices} torchrun --nproc_per_node=2 --master_port=$master_port forget.py --config-name=forget_family.yaml model_family=${model} unlearn_data_id=${unlearn_data_id} forget_loss=${forget_loss} model_path=${model_path}; 
 
 # для каждой поддиректории с чекпоинтами

@@ -141,7 +141,7 @@ class FamilyForgetDataset(Dataset):
 # Если unlearn_data_id = [267], то датасет будет возвращать только данные для факта #267
 # "Кто отец John?" → "Mike"
     
-def custom_data_collator(samples): # for, здесь батчи из одного и того же факта, вроде это улучшает забывание
+def custom_data_collator(samples): # здесь батчи из одного и того же факта, вроде это улучшает забывание
     input_ids = [s[0] for s in samples] # просто объединяем, например, input_ids для всех примеров 1 и того же факта
     labels = [s[1] for s in samples]
     attention_mask = [s[2] for s in samples]
