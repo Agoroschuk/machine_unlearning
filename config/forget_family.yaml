@@ -1,6 +1,6 @@
 model_family: llama3-8b
 # model_path: ft_model_checkpoint/ft_llama3_8b
-model_path: /content/drive/MyDrive/models/ft_model_checkpoint/ft_llama3_8b
+model_path: /content/drive/MyDrive/Unlearning/models/ft_model_checkpoint/ft_llama3_8b
 config_path: config/
 
 lr: null

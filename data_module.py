@@ -5,6 +5,7 @@ from torch.nn.utils.rnn import pad_sequence
 import datasets
 from utils import get_model_identifiers_from_yaml, add_dataset_index
 import os
+import numpy as np
 
 def convert_raw_data_to_model_format(tokenizer, max_length, question, answer, model_configs):
     """
@@ -120,7 +121,7 @@ class FamilyForgetDataset(Dataset):
                     self.outputs_f_ref_logits[idx],\
                     torch.tensor(indices)
         else:
-            return torch.stack(pad_input_ids_list).squeeze(),\ 
+            return torch.stack(pad_input_ids_list).squeeze(),\
                 torch.stack(label_list).squeeze(),\
                 torch.stack(pad_attention_mask_list).squeeze(),\
                 torch.tensor(indices)
