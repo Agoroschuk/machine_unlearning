@@ -60,6 +60,7 @@ def main(cfg):
     if cfg.model_path is None:
         cfg.model_path = model_cfg["ft_model_path"]
 
+    os.makedirs(cfg.save_dir, exist_ok=True)
     # куда будут сохраняться результаты эксперимента
     print("######################")
     print("Saving to: ", cfg.save_dir)
@@ -110,6 +111,7 @@ def main(cfg):
     max_steps = int(num_epochs*len(torch_format_dataset))//(batch_size*gradient_accumulation_steps*num_devices)
     print(f"max_steps: {max_steps}")
     print(f"steps_per_epoch: {steps_per_epoch}")
+    os.makedirs(f'{cfg.save_dir}/logs', exist_ok=True) 
     
     # создание аргументов для тренировки
     training_args = transformers.TrainingArguments(
