@@ -5,7 +5,9 @@
 
 # Пайплайн для ga unlearning
 # Задание переменных: номер порта для распределенного обучения и номера устройств gpu
-master_port=18765;devices="0,1" # 2gpu
+master_port=18765;
+# devices="0,1" # 2gpu
+devices="0" 
 model=$1 # 1-й аргумент команд. строки (= gpt2-xl)
 unlearn_data_id=$2 # 2-й аргумент команд. строки (= 1)
 # model_path=ft_model_checkpoint/ft_${model}
@@ -20,7 +22,7 @@ mkdir -p $save_path  # папка для сохранения результат
 # запуск скрипта забывания на 2 gpu процессах
 # torchrun - launcher для распределенного обучения PyTorch
 # -- отделяются опции
-CUDA_VISIBLE_DEVICES=${devices} torchrun --nproc_per_node=2 --master_port=$master_port forget.py --config-name=forget_family.yaml model_family=${model} unlearn_data_id=${unlearn_data_id} forget_loss=${forget_loss} model_path=${model_path}; 
+CUDA_VISIBLE_DEVICES=${devices} torchrun --nproc_per_node=1 --master_port=$master_port forget.py --config-name=forget_family.yaml model_family=${model} unlearn_data_id=${unlearn_data_id} forget_loss=${forget_loss} model_path=${model_path}; 
 
 # для каждой поддиректории с чекпоинтами
 for cur_save_dir in ${save_path}/*/; do
@@ -34,8 +36,8 @@ for cur_save_dir in ${save_path}/*/; do
     # Оценка способностей модели (LM-eval)
     # tasks piqa,race,mmlu  - Тесты на здравый смысл, чтение, знания
     CUDA_VISIBLE_DEVICES=${devices} lm_eval --model vllm \
-        --model_args pretrained=${cur_save_dir},tokenizer=${model_id},tensor_parallel_size=2,dtype=auto,gpu_memory_utilization=0.8,data_parallel_size=1 \
-        --tasks piqa,race,mmlu \ 
+        --model_args pretrained=${cur_save_dir},tokenizer=${model_id},tensor_parallel_size=1,dtype=auto,gpu_memory_utilization=0.8,data_parallel_size=1 \
+        --tasks piqa,race,mmlu \
         --batch_size auto \
         --output_path ${cur_save_dir}
     # Очистка весов моделей (сохраняем только метрики и логи)

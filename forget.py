@@ -146,11 +146,11 @@ def main(cfg):
     import re
     path_found = False
     for file in os.listdir(cfg.model_path):
-        if re.search("pytorch.*\.bin", file):
+        if re.search(r"pytorch.*\.bin", file):
             path_found = True
             break
         
-        if re.search("model-*\.safetensors", file):
+        if re.search(r"model-*\.safetensors", file):
             path_found = True
             break
 
@@ -164,7 +164,8 @@ def main(cfg):
         model = AutoModelForCausalLM.from_pretrained(
             cfg.model_path, # ← ЛОКАЛЬНЫЙ путь к весам "ft_model_checkpoint/ft_phi"
             config=config, # конфигурация модели из HF, хоть и есть локальная. Из HF будет полнее
-            use_flash_attention_2=model_cfg["flash_attention2"]=="true", 
+            # use_flash_attention_2=model_cfg["flash_attention2"]=="true", 
+            attn_implementation="flash_attention_2",
             torch_dtype=torch.bfloat16, 
             token=os.environ['HF_TOKEN'], 
             trust_remote_code = True)
