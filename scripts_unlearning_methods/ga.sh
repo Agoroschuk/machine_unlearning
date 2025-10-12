@@ -1,7 +1,7 @@
 #!/bin/bash  # нужно, чтобы выполнился script.sh
 
 # Пусть, вызвали 
-# bash scripts_unlearning_methods/ga.sh gpt2-xl 1
+# bash scripts_unlearning_methods/ga.sh gpt2_xl 1
 
 # Пайплайн для ga unlearning
 # Задание переменных: номер порта для распределенного обучения и номера устройств gpu

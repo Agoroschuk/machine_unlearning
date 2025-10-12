@@ -71,7 +71,7 @@ def main(cfg):
     tokenizer.pad_token = tokenizer.eos_token
 
     #get the the unlearn_data_i in shuffled id, ПОДГОТОВКА ДАТАСЕТА для забывания
-    subsample = torch.load(cfg.subsample_path)
+    subsample = torch.load(cfg.subsample_path, weights_only = False)
     if "family" in cfg.data_path:
         if cfg.unlearn_data_id != -1:
             shuffled_unlearn_data_id = int(subsample[cfg.unlearn_data_id])
@@ -133,7 +133,7 @@ def main(cfg):
         deepspeed='config/ds_config.json',
         weight_decay = cfg.weight_decay, #l2-рег.
         eval_steps = 1,
-        evaluation_strategy = "steps",
+        eval_strategy = "steps",
         seed=cfg.seed,
         lr_scheduler_type="linear", # линейное уменьшение lr
     )
@@ -165,7 +165,8 @@ def main(cfg):
             cfg.model_path, # ← ЛОКАЛЬНЫЙ путь к весам "ft_model_checkpoint/ft_phi"
             config=config, # конфигурация модели из HF, хоть и есть локальная. Из HF будет полнее
             use_flash_attention_2=model_cfg["flash_attention2"]=="true", 
-            torch_dtype=torch.bfloat16, token=os.environ['HF_TOKEN'], 
+            torch_dtype=torch.bfloat16, 
+            token=os.environ['HF_TOKEN'], 
             trust_remote_code = True)
     else:
         print("checkpoint not found")

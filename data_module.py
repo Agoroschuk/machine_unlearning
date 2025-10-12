@@ -77,7 +77,7 @@ class FamilyForgetDataset(Dataset):
         super(FamilyForgetDataset, self).__init__()
         self.tokenizer = tokenizer
         self.max_length = max_length
-        self.data = datasets.Dataset.from_dict(torch.load(data_path))
+        self.data = datasets.Dataset.from_dict(torch.load(data_path, weights_only = False))
         self.data = add_dataset_index(self.data)
         self.qk = question_key
         self.ak = answer_key
