@@ -45,8 +45,9 @@ for cur_save_dir in ${save_path}/*/; do
     rm ${cur_save_dir}/*.safetensors
     rm ${cur_save_dir}/*.json
     rm ${cur_save_dir}/*.bin
+done # конец цикла
     # Попробовать, чтобы удалялось сразу, а не попадало в корзину google drive 
     # trash-put -f ${cur_save_dir}/*.safetensors
     # trash-put -f ${cur_save_dir}/*.json
     # trash-put -f ${cur_save_dir}/*.bin
-done # конец цикла
+

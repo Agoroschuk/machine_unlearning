@@ -25,7 +25,7 @@ model_id = model_cfg["model_id"]
 #load vllm model
 model_eval = LLM(curr_save_dir, tokenizer=model_id, device="auto")
 # eval_dataset = datasets.load_from_disk(curr_save_dir+"/eval.hf")
-eval_dataset_list = [Dataset.from_dict(torch.load("synthetic_data/family_relationships.pt", weights_only=False)), Dataset.from_dict(torch.load("synthetic_data/family_biographies.pt"))]
+eval_dataset_list = [Dataset.from_dict(torch.load("synthetic_data/family_relationships.pt", weights_only=False)), Dataset.from_dict(torch.load("synthetic_data/family_biographies.pt", weights_only=False))]
 eval_dataset_name_list = ["relationships_", "biographies_"]
 
 #remove local model
