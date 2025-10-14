@@ -25,7 +25,7 @@ model_id = model_cfg["model_id"]
 #load vllm model
 model_eval = LLM(curr_save_dir, tokenizer=model_id, device="auto")
 # eval_dataset = datasets.load_from_disk(curr_save_dir+"/eval.hf")
-eval_dataset_list = [Dataset.from_dict(torch.load("synthetic_data/family_relationships.pt")), Dataset.from_dict(torch.load("synthetic_data/family_biographies.pt"))]
+eval_dataset_list = [Dataset.from_dict(torch.load("synthetic_data/family_relationships.pt", weights_only=False)), Dataset.from_dict(torch.load("synthetic_data/family_biographies.pt"))]
 eval_dataset_name_list = ["relationships_", "biographies_"]
 
 #remove local model
@@ -35,6 +35,7 @@ if args.clean_cache == "true":
 
 Path(curr_save_dir).mkdir(parents=True, exist_ok=True)
 
+# Здесь оцениваются чекпоинты из логов
 for eval_dataset, eval_dataset_name in zip(eval_dataset_list, eval_dataset_name_list):
     with torch.no_grad():
         correct, responses = eval_qa_vllm(eval_dataset, model_eval, qk="question4", ak="answer4", question_start_tag=model_cfg["question_start_tag"], question_end_tag=model_cfg["question_end_tag"], answer_tag=model_cfg["answer_tag"])

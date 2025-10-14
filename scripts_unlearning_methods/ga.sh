@@ -1,5 +1,6 @@
 #!/bin/bash  # нужно, чтобы выполнился script.sh
 
+# sudo apt-get update && sudo apt-get install -y trash-cli # для удаления минуя корзину
 # Пусть, вызвали 
 # bash scripts_unlearning_methods/ga.sh gpt2_xl 1
 
@@ -24,7 +25,7 @@ mkdir -p $save_path  # папка для сохранения результат
 # -- отделяются опции
 CUDA_VISIBLE_DEVICES=${devices} torchrun --nproc_per_node=1 --master_port=$master_port forget.py --config-name=forget_family.yaml model_family=${model} unlearn_data_id=${unlearn_data_id} forget_loss=${forget_loss} model_path=${model_path}; 
 
-# для каждой поддиректории с чекпоинтами
+# для каждой поддиректории с чекпоинтами (для каждого чекпоинта посчитать метрики)
 for cur_save_dir in ${save_path}/*/; do
     # оценка на 1 из 4 моделей с пом. vllm_eval.py
     CUDA_VISIBLE_DEVICES=${devices} python vllm_eval.py --curr_save_dir ${cur_save_dir} --model_family $model --clean_cache false; 
@@ -33,7 +34,7 @@ for cur_save_dir in ${save_path}/*/; do
     declare -A model_to_modelid=( ["llama2-7b"]="meta-llama/Llama-2-7b" ["llama3-8b"]="meta-llama/Meta-Llama-3-8B" ["gpt2-xl"]="openai-community/gpt2-xl" ["phi"]="microsoft/phi-1_5")
     model_id="${model_to_modelid[$model]}"
     
-    # Оценка способностей модели (LM-eval)
+    # Оценка способностей модели (LM-eval) - вроде пока вообще не работает
     # tasks piqa,race,mmlu  - Тесты на здравый смысл, чтение, знания
     CUDA_VISIBLE_DEVICES=${devices} lm_eval --model vllm \
         --model_args pretrained=${cur_save_dir},tokenizer=${model_id},tensor_parallel_size=1,dtype=auto,gpu_memory_utilization=0.8,data_parallel_size=1 \
@@ -44,6 +45,8 @@ for cur_save_dir in ${save_path}/*/; do
     rm ${cur_save_dir}/*.safetensors
     rm ${cur_save_dir}/*.json
     rm ${cur_save_dir}/*.bin
-    
-    
+    # Попробовать, чтобы удалялось сразу, а не попадало в корзину google drive 
+    # trash-put -f ${cur_save_dir}/*.safetensors
+    # trash-put -f ${cur_save_dir}/*.json
+    # trash-put -f ${cur_save_dir}/*.bin
 done # конец цикла
