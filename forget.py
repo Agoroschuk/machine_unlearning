@@ -40,8 +40,6 @@ def print_trainable_parameters(model):  # единственная оставл�
 # с управлением через конфиги и cmd, из config/forget.yaml объект cfg
 @hydra.main(version_base=None, config_path="config", config_name="forget")
 def main(cfg):
-    # здесь нужно монтировать гугл диск, чтобы использовать finetuned модели
-    # остальное вроде не трогать
     num_devices = int(os.environ.get('WORLD_SIZE', 1)) # число устройств gpu
     print(f"num_devices: {num_devices}")
 
@@ -111,6 +109,7 @@ def main(cfg):
     max_steps = int(num_epochs*len(torch_format_dataset))//(batch_size*gradient_accumulation_steps*num_devices)
     print(f"max_steps: {max_steps}")
     print(f"steps_per_epoch: {steps_per_epoch}")
+    # папка logs создается через раз и всегда пустая. Чем должна быть заполнена?
     os.makedirs(f'{cfg.save_dir}/logs', exist_ok=True) 
     
     # создание аргументов для тренировки
@@ -128,7 +127,7 @@ def main(cfg):
         output_dir=cfg.save_dir,
         # optim не определяет ф-цию потерь, а лишь оптимизирует ее
         optim="paged_adamw_32bit", #разница с AdamW только в уменьшенном использовании памяти
-        save_strategy="no",
+        save_strategy="no", # это вроде про сохранение именно модели, а не логов
         ddp_find_unused_parameters= False,
         deepspeed='config/ds_config.json',
         weight_decay = cfg.weight_decay, #l2-рег.
@@ -145,6 +144,8 @@ def main(cfg):
     # отсюда же берутся частично обученные сохраненные части модели
     import re
     path_found = False
+    # cfg.model_path переопределяется в вызове .sh соответствующего метода
+    # CUDA_VISIBLE_DEVICES=${devices} torchrun --nproc_per_node=1 ..... forget_loss=${forget_loss} model_path=${model_path}; 
     for file in os.listdir(cfg.model_path):
         if re.search(r"pytorch.*\.bin", file):
             path_found = True
@@ -171,7 +172,7 @@ def main(cfg):
             trust_remote_code = True)
     else:
         print("checkpoint not found")
-        exit()
+        exit()  # глобально завершит весь процесс, не только forget.py
     
     
     # Hot fix for https://discuss.huggingface.co/t/help-with-llama-2-finetuning-setup/50035
@@ -182,7 +183,7 @@ def main(cfg):
     model.generation_config.do_sample = True
     
     #now we have a HuggingFace model 
-    if model_cfg["gradient_checkpointing"] == "true":
+    if model_cfg["gradient_checkpointing"] == "true": # стратегия сохранения памяти и не сохранения лишних градиентов в случае больших моделей (вместо сохранения пересчитывается, когда нужно)
         model.gradient_checkpointing_enable()
 
     # кастомный тренер, он только для ga и npo
@@ -228,7 +229,7 @@ def main(cfg):
     trainer.train()
 
     #delete all "global_step*" files in the save_dir/checkpoint-*/ directories
-    # удаление временных файлов после обучения
+    # удаление файлов, начинающихся с global_step, после обучения
     if local_rank == 0:
         for file in Path(cfg.save_dir).glob("checkpoint-*"):
             for global_step_dir in file.glob("global_step*"):

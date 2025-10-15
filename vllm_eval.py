@@ -3,7 +3,7 @@ import datasets
 import gc
 import torch
 import numpy as np
-from vllm import LLM
+from vllm import LLM  # высокопроизводительная библиотека для инференса больших языковых моделей
 from vllm.distributed.parallel_state import destroy_model_parallel
 from pathlib import Path
 from datasets import Dataset

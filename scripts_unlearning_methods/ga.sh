@@ -2,6 +2,7 @@
 
 # sudo apt-get update && sudo apt-get install -y trash-cli # для удаления минуя корзину
 # Пусть, вызвали 
+# bash scripts_unlearning_methods/${unlearning_methods}.sh $target_model $unlearn_target_data_id
 # bash scripts_unlearning_methods/ga.sh gpt2_xl 1
 
 # Пайплайн для ga unlearning
@@ -23,9 +24,11 @@ mkdir -p $save_path  # папка для сохранения результат
 # запуск скрипта забывания на 2 gpu процессах
 # torchrun - launcher для распределенного обучения PyTorch
 # -- отделяются опции
+# Переопределяет "forget" на "forget_family.yaml"
 CUDA_VISIBLE_DEVICES=${devices} torchrun --nproc_per_node=1 --master_port=$master_port forget.py --config-name=forget_family.yaml model_family=${model} unlearn_data_id=${unlearn_data_id} forget_loss=${forget_loss} model_path=${model_path}; 
 
 # для каждой поддиректории с чекпоинтами (для каждого чекпоинта посчитать метрики)
+# Тут уже должны рассчитываться метрики => проблема д.б. с сохранением checkpoint в forget.py
 for cur_save_dir in ${save_path}/*/; do
     # оценка на 1 из 4 моделей с пом. vllm_eval.py
     CUDA_VISIBLE_DEVICES=${devices} python vllm_eval.py --curr_save_dir ${cur_save_dir} --model_family $model --clean_cache false; 
