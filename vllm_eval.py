@@ -18,6 +18,7 @@ parser.add_argument('--clean_cache', type=str, default="false")
 parser.add_argument('--config_path', type=str, default="config/")
 args = parser.parse_args()
 
+# curr_save_dir = конкретный чекпоинт
 curr_save_dir = args.curr_save_dir
 model_cfg = get_model_identifiers_from_yaml(args.model_family, config_path=args.config_path)
 model_id = model_cfg["model_id"]
@@ -31,14 +32,16 @@ eval_dataset_name_list = ["relationships_", "biographies_"]
 #remove local model
 if args.clean_cache == "true":
     import shutil
-    shutil.rmtree(curr_save_dir)
+    shutil.rmtree(curr_save_dir) # удаление всей папки curr_save_dir и всего содержимого
 
 Path(curr_save_dir).mkdir(parents=True, exist_ok=True)
 
 # Здесь оцениваются чекпоинты из логов
 for eval_dataset, eval_dataset_name in zip(eval_dataset_list, eval_dataset_name_list):
     with torch.no_grad():
-        # что есть correct, что есть responses?
+        # что есть correct, что есть responses? Как их получить ?
+        # correct - булев массив, где, если я правильно понимаю, True = факт сохранился
+        # responses - vllm объекты с подробностями о том, как на них работало забывание (ценно)
         correct, responses = eval_qa_vllm(eval_dataset, model_eval, qk="question4", ak="answer4", question_start_tag=model_cfg["question_start_tag"], question_end_tag=model_cfg["question_end_tag"], answer_tag=model_cfg["answer_tag"])
         torch.save(correct, f"{curr_save_dir}/{eval_dataset_name}correct.pt")
         torch.save(responses, f"{curr_save_dir}/{eval_dataset_name}responses.pt")

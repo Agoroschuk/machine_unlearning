@@ -128,7 +128,6 @@ class CustomFamilyTrainerForgetting(Trainer):
         """
         if self.save_step_pattern == "log":
             curr_step = self.state.global_step
-            import math
             # сохранение модели на этих шагах
             if curr_step not in [1, 2, 4, 8, 16, 32]: 
                 return
@@ -140,7 +139,6 @@ class CustomFamilyTrainerForgetting(Trainer):
         # сохранение модели в конце каждой эпохи
         elif self.save_step_pattern == "every_epoch":
             curr_epoch = self.state.epoch
-            import math
             if int(curr_epoch) <= self.last_epoch: 
                 print(curr_epoch)
                 return
