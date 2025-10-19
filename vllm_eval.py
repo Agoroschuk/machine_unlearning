@@ -45,6 +45,9 @@ for eval_dataset, eval_dataset_name in zip(eval_dataset_list, eval_dataset_name_
         correct, responses = eval_qa_vllm(eval_dataset, model_eval, qk="question4", ak="answer4", question_start_tag=model_cfg["question_start_tag"], question_end_tag=model_cfg["question_end_tag"], answer_tag=model_cfg["answer_tag"])
         torch.save(correct, f"{curr_save_dir}/{eval_dataset_name}correct.pt")
         torch.save(responses, f"{curr_save_dir}/{eval_dataset_name}responses.pt")
+        # если проводить параллель с calculate_recall_and_acc.py, то правильно считать таким способом только accuracy для biographies, для relationships логика сложнее
+        # и самое важное здесь = relationships_correct.pt = булев массив из того, что осталось после unlearning незабытым
+        # при сопоставлении его с minimal_set для забывания этого конкретного факта можем выяснить acc_relationships, recall_relationships
         acc = np.asarray(correct).astype(np.float32).mean()
         print(f"{eval_dataset}accuracy: {acc}")
 
