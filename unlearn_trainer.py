@@ -80,12 +80,12 @@ class CustomFamilyTrainerForgetting(Trainer):
             loss = outputs.loss
         return (loss, logits, labels)
 
-    def reliable_safe_model(self, model, curr_save_dir,max_retries:int=10, sleep_time: int=5):
+    def reliable_save_model(self, curr_save_dir, max_retries:int=10, sleep_time: int=5):
+        # список не полный, главное - model.safetensors
         required_files = [
             'config.json',
             'generation_config.json',
             'model.safetensors',
-            'trainer_state.json',
             'training_args.bin'
         ]
         os.makedirs(curr_save_dir, exist_ok=True)
@@ -136,7 +136,7 @@ class CustomFamilyTrainerForgetting(Trainer):
             curr_save_dir = os.path.join(self.save_dir, f"checkpoint-{curr_step}")
             # self.save_model(curr_save_dir)
             # более надежное сохранение на google drive, с повторениями и ожиданиями
-            self.reliable_save_model(curr_save_model)
+            self.reliable_save_model(curr_save_dir)
         # сохранение модели в конце каждой эпохи
         elif self.save_step_pattern == "every_epoch":
             curr_epoch = self.state.epoch
