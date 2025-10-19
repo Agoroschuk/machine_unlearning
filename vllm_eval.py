@@ -38,6 +38,7 @@ Path(curr_save_dir).mkdir(parents=True, exist_ok=True)
 # Здесь оцениваются чекпоинты из логов
 for eval_dataset, eval_dataset_name in zip(eval_dataset_list, eval_dataset_name_list):
     with torch.no_grad():
+        # что есть correct, что есть responses?
         correct, responses = eval_qa_vllm(eval_dataset, model_eval, qk="question4", ak="answer4", question_start_tag=model_cfg["question_start_tag"], question_end_tag=model_cfg["question_end_tag"], answer_tag=model_cfg["answer_tag"])
         torch.save(correct, f"{curr_save_dir}/{eval_dataset_name}correct.pt")
         torch.save(responses, f"{curr_save_dir}/{eval_dataset_name}responses.pt")

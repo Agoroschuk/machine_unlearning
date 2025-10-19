@@ -2,6 +2,8 @@ import torch
 from transformers import Trainer
 import torch.nn.functional as F
 import os
+import time
+import shutil
 import copy
 import numpy as np
 
@@ -78,6 +80,40 @@ class CustomFamilyTrainerForgetting(Trainer):
             loss = outputs.loss
         return (loss, logits, labels)
 
+    def reliable_safe_model(self, model, curr_save_dir,max_retries:int=10, sleep_time: int=5):
+        required_files = [
+            'config.json',
+            'generation_config.json',
+            'model.safetensors',
+            'trainer_state.json',
+            'training_args.bin'
+        ]
+        os.makedirs(curr_save_dir, exist_ok=True)
+
+        for attempt in range(1, max_retries + 1):
+            print(f'[ReliableSave] Attempt {attempt}/{max_retries} -> Saving model to {curr_save_dir}...')
+            self.save_model(curr_save_dir)
+            os.sync() # просьба к ядру linux синхронизировать (записать) все буферы записи на гугл диск
+            time.sleep(sleep_time) # приостановка текущего потока программы на sleep_time секунд (чтобы FUSE-драйвер google drive закончил синхронизацию)
+
+            existing_files = os.listdir(curr_save_dir)
+            missing_files = [f for f in required_files if f not in existing_files]
+
+            if not missing_files:
+                print(f'[ReliableSave] All required files found in {curr_save_dir}')
+                return True
+            else:
+                print(f'[ReliableSave] Missing files after attempt {attempt}:{missing_files}')
+                try:
+                    # вспомогат.процесс для помощи FUSE
+                    shutil.copy2(os.path.join(curr_save_dir, 'config.json'), curr_save_dir)
+                except Exception:
+                    pass
+        print(f'[ReliableSave] Failed to fully save_model after {max_retries} attempts')
+        print(f'Succeeded to save: {os.listdir(curr_save_dir)}')
+        return False
+
+
     def evaluate(
         self,
         eval_dataset = None,
@@ -98,7 +134,9 @@ class CustomFamilyTrainerForgetting(Trainer):
                 return
             # сохранение 
             curr_save_dir = os.path.join(self.save_dir, f"checkpoint-{curr_step}")
-            self.save_model(curr_save_dir)
+            # self.save_model(curr_save_dir)
+            # более надежное сохранение на google drive, с повторениями и ожиданиями
+            self.reliable_save_model(curr_save_model)
         # сохранение модели в конце каждой эпохи
         elif self.save_step_pattern == "every_epoch":
             curr_epoch = self.state.epoch
@@ -109,7 +147,8 @@ class CustomFamilyTrainerForgetting(Trainer):
 #             print(int(curr_epoch+0.5))
             curr_save_dir = os.path.join(self.save_dir, f"checkpoint-{int(curr_epoch)}")
             self.last_epoch = int(curr_epoch)
-            self.save_model(curr_save_dir)
+            # self.save_model(curr_save_dir)
+            self.reliable_save_model(curr_save_dir)
         return
 
         
