@@ -20,10 +20,11 @@ args = parser.parse_args()
 
 # curr_save_dir = конкретный чекпоинт
 curr_save_dir = args.curr_save_dir
+# model_cfg - словарь с параметрами модели из model_config.yaml
 model_cfg = get_model_identifiers_from_yaml(args.model_family, config_path=args.config_path)
 model_id = model_cfg["model_id"]
 
-#load vllm model
+#load model via llm
 model_eval = LLM(curr_save_dir, tokenizer=model_id, device="auto")
 # eval_dataset = datasets.load_from_disk(curr_save_dir+"/eval.hf")
 eval_dataset_list = [Dataset.from_dict(torch.load("synthetic_data/family_relationships.pt", weights_only=False)), Dataset.from_dict(torch.load("synthetic_data/family_biographies.pt", weights_only=False))]
@@ -39,11 +40,21 @@ Path(curr_save_dir).mkdir(parents=True, exist_ok=True)
 # Здесь оцениваются чекпоинты из логов
 for eval_dataset, eval_dataset_name in zip(eval_dataset_list, eval_dataset_name_list):
     with torch.no_grad():
-        # что есть correct, что есть responses? Как их получить ?
         # correct - булев массив, где, если я правильно понимаю, True = факт сохранился
         # responses - vllm объекты с подробностями о том, как на них работало забывание (ценно)
-        correct, responses = eval_qa_vllm(eval_dataset, model_eval, qk="question4", ak="answer4", question_start_tag=model_cfg["question_start_tag"], question_end_tag=model_cfg["question_end_tag"], answer_tag=model_cfg["answer_tag"])
+        correct, responses = eval_qa_vllm(
+            eval_dataset, 
+            model_eval, 
+            qk="question4", 
+            ak="answer4", 
+            question_start_tag=model_cfg["question_start_tag"], 
+            question_end_tag=model_cfg["question_end_tag"], 
+            answer_tag=model_cfg["answer_tag"])
+        # eval_qa_vllm формирует промпт с тегами и генерирует ответ с помощью модели model_eval
+        # сохранение ответа True/False (True = модель дала правильный ответ)
         torch.save(correct, f"{curr_save_dir}/{eval_dataset_name}correct.pt")
+        # подробные результаты генерации 
+        # ['request_id', 'prompt', 'prompt_token_ids', 'prompt_logprobs', 'outputs', 'finished', 'metrics', 'lora_request', 'encoder_prompt', 'encoder_prompt_token_ids']
         torch.save(responses, f"{curr_save_dir}/{eval_dataset_name}responses.pt")
         # если проводить параллель с calculate_recall_and_acc.py, то правильно считать таким способом только accuracy для biographies, для relationships логика сложнее
         # и самое важное здесь = relationships_correct.pt = булев массив из того, что осталось после unlearning незабытым
@@ -51,6 +62,7 @@ for eval_dataset, eval_dataset_name in zip(eval_dataset_list, eval_dataset_name_
         acc = np.asarray(correct).astype(np.float32).mean()
         print(f"{eval_dataset}accuracy: {acc}")
 
+# освобождение gpu памяти и завершение параллельного окружения vLLM
 destroy_model_parallel()
 del model_eval
 gc.collect()

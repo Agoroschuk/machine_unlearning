@@ -3,11 +3,31 @@ import torch.nn.functional as F
 import torch
 from tqdm import tqdm
 
-def eval_qa_vllm(dataset, model_eval, qk="question", ak="answer", question_start_tag="[INST] ", question_end_tag=" [/INST]", answer_tag=""):
+def eval_qa_vllm(
+    dataset, 
+    model_eval, 
+    qk="question", 
+    ak="answer", 
+    question_start_tag="[INST] ", 
+    question_end_tag=" [/INST]", 
+    answer_tag=""
+):  
+    # формирование списка промптов к каждому факту из relationships или biographies facts
     prompts = [question_start_tag + data[qk] + question_end_tag for data in dataset]
+    # настройка параметров генерации
+    # temperature = 0 <=> генерация точная, детерминированная
+    # top_p:берем лишь те токены, вероятность которых <= 0.6
+    # max_tokens: в ответе максимум 10 токенов
     sampling_params = SamplingParams(temperature=0, top_p=0.6, max_tokens=10)
+    # генерация ответов на промпты в соответствии с настройкой
+    # model_eval - объект LLM, который получает и параллельно обрабатывает список промптов
+    # responses - <class 'vllm.outputs.RequestOutput'>, содержит сам промпт, ответ outputs, 
+    # напр. outputs: [CompletionOutput(index=0, text='1908fatherfatherfatherfatherfatherfatherfatherfather', token_ids=array('l', [1129, 2919, 11358, 11358, 11358, 11358, 11358, 11358, 11358, 11358]), cumulative_logprob=None, logprobs=None, finish_reason=length, stop_reason=None)]
     responses = model_eval.generate(prompts, sampling_params)
+    # извлечение текста из каждого response
     outputs = [response.outputs[0].text for response in responses]
+    # проверяется, есть ли в text правильный ответ, correct = булев массив
+    # здесь например, прав. ответ = 1908 [text='1908fatherfatherfatherfatherfatherfatherfatherfather']
     correct = [data[ak].lower() in output.lower() for data, output in zip(dataset, outputs)]
     return correct, responses
 
