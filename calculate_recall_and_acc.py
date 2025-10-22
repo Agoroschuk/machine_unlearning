@@ -93,4 +93,4 @@ print((rec, acc_rel, acc_bio, acc_all))
 # Сохранение нужно продумать по папочкам (метод/модель/id данных/чекпоинт) и сохранять на google drive в каком-то формате, в котором будут результаты
 # ('recall', 'accuracy of relationships', 'accuracy of biographies', 'accuracy of all knowledge base')
 # (0.75, 0.25, 0.023333333333333334, 0.15229885057471265)
-# torch.save((rec, acc_rel, acc_bio, acc_all), f"{args.input_dir}/rec_acc.pt")
+torch.save((rec, acc_rel, acc_bio, acc_all), f"{args.input_dir}/rec_acc.pt")
