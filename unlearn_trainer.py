@@ -35,18 +35,22 @@ class CustomTrainer(Trainer): # должен подходить для обыч�
 # ядро забывания
 class CustomFamilyTrainerForgetting(Trainer):
     def __init__(self, *args, **kwargs):
+        # извлечение кастомных аргументов
         self.loss_type = kwargs.pop('forget_loss')
         self.save_dir = kwargs.pop('save_dir')
         self.save_step_pattern = kwargs.pop('save_step_pattern')
         self.last_epoch = 0
         # наследование от родительского класса нужно, чтобы все параметры CustomFamilyTrainerForgetting инициализировались
-        # Чтобы работало то, что наследуется от Trainer
+        # Чтобы работало то, что наследуется от Trainer (а по сути это все, кроме кастомных forget_loss, save_dir, save_step_pattern)
+        # передача оставшихся аргументов
         super(CustomFamilyTrainerForgetting, self).__init__(*args, **kwargs) 
         
         if self.loss_type == "npo":
             self.beta = 0.1
 
+    # Trainer заберет мой кастомный лосс, т.к. CustomFamilyTrainerForgetting наследуется от Trainer
     def compute_loss(self, model, inputs, return_outputs=False):
+        # стандартный сe loss, хотим, чтобы каждый новый токен был наименее правдоподобен (софтмакс по всему размеру словаря в tokenizer)
         if self.loss_type == "ga":
             forget_inputs = inputs
             input_ids, labels, attention_mask = inputs

@@ -4,6 +4,7 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig, set_seed
 
 import hydra #для конфигураций
+import re
 import transformers
 from datasets import Dataset
 import os
@@ -112,7 +113,7 @@ def main(cfg):
     # папка logs создается через раз и всегда пустая. Чем должна быть заполнена?
     os.makedirs(f'{cfg.save_dir}/logs', exist_ok=True) 
     
-    # создание аргументов для тренировки
+    # задание параметров для обучения (если передать неизвестный аргумент, будет ошибка)
     training_args = transformers.TrainingArguments(
         per_device_train_batch_size=batch_size, #кол-во примеров на трейне для оценки
         per_device_eval_batch_size=batch_size,
@@ -142,7 +143,6 @@ def main(cfg):
     #if there is a pytorch*.bin file in the model path, then load that. use regex there can be anything in between pytorch and .bin
     # проверка, ли существует ли чекпоинт модели в указанном пути cfg.model_path
     # отсюда же берутся частично обученные сохраненные части модели
-    import re
     path_found = False
     # cfg.model_path переопределяется в вызове .sh соответствующего метода
     # CUDA_VISIBLE_DEVICES=${devices} torchrun --nproc_per_node=1 ..... forget_loss=${forget_loss} model_path=${model_path}; 
@@ -186,14 +186,17 @@ def main(cfg):
     if model_cfg["gradient_checkpointing"] == "true": # стратегия сохранения памяти и не сохранения лишних градиентов в случае больших моделей (вместо сохранения пересчитывается, когда нужно)
         model.gradient_checkpointing_enable()
 
-    # кастомный тренер, он только для ga и npo
+    # кастомный тренер (исполнитель обучения), он только для ga и npo
     trainer = CustomFamilyTrainerForgetting(
+        # здесь все передаваемые аргументы = *kwargs (именованные)
+        # т.к. формат name=value, а не просто value 
         model=model,
         tokenizer=tokenizer,
         train_dataset=torch_format_dataset,
         compute_metrics=None,
-        args=training_args,
+        args=training_args, # здесь о том, как нужно обучать
         data_collator=custom_data_collator if not cfg.forget_loss == "npo" else custom_data_collator_npo,
+        # дальше именованные аргументы *kwargs (т.к. неизвестны для Trainer)
         forget_loss = cfg.forget_loss, # метод забывания ga/npo
         save_step_pattern=cfg.save_step_pattern,
         save_dir=cfg.save_dir
