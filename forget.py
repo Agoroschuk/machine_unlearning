@@ -73,6 +73,7 @@ def main(cfg):
     subsample = torch.load(cfg.subsample_path, weights_only = False)
     if "family" in cfg.data_path:
         if cfg.unlearn_data_id != -1:
+            # subsample содержит все 55 фактов видимо
             shuffled_unlearn_data_id = int(subsample[cfg.unlearn_data_id])
             # FamilyForgetDataset возвращает датасет для забывания
             torch_format_dataset = FamilyForgetDataset(
@@ -83,7 +84,15 @@ def main(cfg):
                 question_key='question4', 
                 answer_key='answer4')
         else:
-            torch_format_dataset = FamilyForgetDataset(cfg.data_path, tokenizer=tokenizer, model_configs=model_cfg, max_length=500, unlearn_data_id=subsample, question_key='question4', answer_key='answer4')
+            # забывание сразу всего subsample из 55 фактов
+            torch_format_dataset = FamilyForgetDataset(
+                cfg.data_path, 
+                tokenizer=tokenizer, 
+                model_configs=model_cfg, 
+                max_length=500, 
+                unlearn_data_id=subsample, 
+                question_key='question4', 
+                answer_key='answer4')
     elif "mquake" in cfg.data_path:
         torch_format_dataset = FamilyForgetDataset(cfg.data_path, tokenizer=tokenizer, model_configs=model_cfg, max_length=500, unlearn_data_id=subsample, question_key='question', answer_key='answer')
         

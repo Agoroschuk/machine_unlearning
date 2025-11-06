@@ -18,7 +18,9 @@ forget_loss=ga
 
 # Забывание запускается отдельно для каждого unlearn_data_id
 # save_path=unlearning_checkpoint/ga/${model}/${unlearn_data_id}
-save_path=/content/drive/MyDrive/Unlearning/models/unlearning_checkpoint/ga/${model}/${unlearn_data_id}
+save_path_log_checkpoints=/content/drive/MyDrive/Unlearning/models/unlearning_checkpoint/log_checkpoints/ga/${model}/${unlearn_data_id}
+save_path_full_checkpoints=/content/drive/MyDrive/Unlearning/models/unlearning_checkpoint/full_checkpoints/ga/${model}/${unlearn_data_id}
+save_path=save_path_full_checkpoints
 mkdir -p $save_path  # папка для сохранения результатов д.б. создана в google drive (parents директории создаются в случае необходимости)
 
 # запуск скрипта забывания на 2 gpu процессах
