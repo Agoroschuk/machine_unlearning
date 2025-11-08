@@ -12,6 +12,8 @@ from transformers.integrations.deepspeed import deepspeed_init, deepspeed_load_c
 
 class CustomTrainer(Trainer): # должен подходить для обычного обучения и finetuning
     def compute_loss(self, model, inputs, return_outputs=False):
+        # labels = те же токены, что input_ids, но со сдвигом на 1 позицию вперед
+        # (по input_ids предсказать labels грубо говоря)
         input_ids, labels, attention_mask = inputs
         # forward pass
         outputs = model(input_ids,labels=labels, attention_mask=attention_mask)
