@@ -38,7 +38,7 @@ def print_trainable_parameters(model):  # единственная оставл�
 
 
 # декоратор гидра делает обычной функции конфигурируемое приложение
-# с управлением через конфиги и cmd, из config/forget.yaml объект cfg
+# с управлением через конфиги и cmd, из config/forget_family.yaml (forget.yaml переопределяется на forget_family.yaml в ga.sh и др. .sh) объект cfg
 @hydra.main(version_base=None, config_path="config", config_name="forget")
 def main(cfg):
     num_devices = int(os.environ.get('WORLD_SIZE', 1)) # число устройств gpu
@@ -94,7 +94,14 @@ def main(cfg):
                 question_key='question4', 
                 answer_key='answer4')
     elif "mquake" in cfg.data_path:
-        torch_format_dataset = FamilyForgetDataset(cfg.data_path, tokenizer=tokenizer, model_configs=model_cfg, max_length=500, unlearn_data_id=subsample, question_key='question', answer_key='answer')
+        torch_format_dataset = FamilyForgetDataset(
+            cfg.data_path, 
+            tokenizer=tokenizer, 
+            model_configs=model_cfg, 
+            max_length=500, 
+            unlearn_data_id=subsample, 
+            question_key='question', 
+            answer_key='answer')
         
     
     if cfg.lr is None:
