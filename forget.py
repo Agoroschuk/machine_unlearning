@@ -69,7 +69,7 @@ def main(cfg):
     tokenizer = AutoTokenizer.from_pretrained(model_id)
     tokenizer.pad_token = tokenizer.eos_token
 
-    #get the the unlearn_data_i in shuffled id, ПОДГОТОВКА ДАТАСЕТА для забывания
+    #get the the unlearn_data_id in shuffled id, ПОДГОТОВКА ДАТАСЕТА для забывания
     subsample = torch.load(cfg.subsample_path, weights_only = False)
     if "family" in cfg.data_path:
         if cfg.unlearn_data_id != -1:
@@ -89,7 +89,7 @@ def main(cfg):
                 cfg.data_path, 
                 tokenizer=tokenizer, 
                 model_configs=model_cfg, 
-                max_length=500, 
+                max_length=500, # этот max_length переопределит max_length в data_module
                 unlearn_data_id=subsample, 
                 question_key='question4', 
                 answer_key='answer4')
@@ -157,7 +157,7 @@ def main(cfg):
     
     #first get the base model architectur2e
     #if there is a pytorch*.bin file in the model path, then load that. use regex there can be anything in between pytorch and .bin
-    # проверка, ли существует ли чекпоинт модели в указанном пути cfg.model_path
+    # проверка, существует ли чекпоинт модели в указанном пути cfg.model_path
     # отсюда же берутся частично обученные сохраненные части модели
     path_found = False
     # cfg.model_path переопределяется в вызове .sh соответствующего метода

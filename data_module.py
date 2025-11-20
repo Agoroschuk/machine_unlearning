@@ -18,11 +18,11 @@ def convert_raw_data_to_model_format(tokenizer, max_length, question, answer, mo
     num_question_tokens = len(tokenizer.tokenize(new_question, add_special_tokens=True))
     encoded = tokenizer(
         full_text, 
-        add_special_tokens=True, # Добавляет [BOS], [EOS] токены
+        add_special_tokens=True, # Добавляет [BOS], [EOS] токены (они свои для каждой LLM)
         max_length=max_length, 
-        truncation=True, 
+        truncation=True, # отрезать токены, выходящие за пределы max_length
     )
-    # дополнение до максимальной длины
+    # дополнение до максимальной длины заполняем eos-токеном в случае input_ids и [0] в attention_mask
     pad_length = max_length - len(encoded.input_ids)
     pad_input_ids = encoded['input_ids'] + [tokenizer.eos_token_id] * pad_length
     # [0] = pad
@@ -30,8 +30,7 @@ def convert_raw_data_to_model_format(tokenizer, max_length, question, answer, mo
     if len(encoded.input_ids) == max_length:
         label = encoded.input_ids
     else:
-        # позиции, заполненные -100 модель не учится предсказывать ()
-        # здесь -100 заполняем дополнения до max_length справа
+        # позиции, заполненные -100 модель не учится предсказывать
         label = encoded['input_ids'] + [tokenizer.eos_token_id] + [-100] * (pad_length-1)
 
     # если full_text = "Question: Кто отец John?\nAnswer: Mike", то 
@@ -44,7 +43,7 @@ def convert_raw_data_to_model_format(tokenizer, max_length, question, answer, mo
     )
         
         
-    #change label to -100 for question tokens
+    #change label to -100 for question tokens (чтобы модель не генерировала вопрос)
 #     print(encoded['input_ids'][num_question_tokens], label[num_question_tokens])
     # маскируем вопрос  с помощью -100, оставляем ответ. Модель разучивает связку вопрос-ответ, но для вычисления loss берется лишь ответ
     for i in range(num_question_tokens): label[i] = -100
@@ -59,12 +58,12 @@ def convert_raw_data_to_model_format(tokenizer, max_length, question, answer, mo
 
     # # Forward pass:
     # outputs = model(**inputs)           # Модель пытается предсказать ответ
-    # loss = cross_entropy(outputs, labels) # Сравниваем с ЦЕЛЬЮ (только ответ) 
+    # loss = cross_entropy(outputs, labels) # Сравниваем с ЦЕЛЬЮ (только ответ) и не учитываем question токены при подсчете ошибки
 
 class FamilyForgetDataset(Dataset):
     def __init__(
             self, 
-            data_path, # data.pt
+            data_path, # data.pt (family_relationships.pt в формате question-answer)
             tokenizer, 
             model_configs, 
             max_length=512,  
@@ -86,6 +85,7 @@ class FamilyForgetDataset(Dataset):
         self.unlearn_data_id = unlearn_data_id
             
         self.model_configs = model_configs
+        # WORLD_SIZE = 1 означает нераспределенную тренировку на GPU
         self.world_size = int(os.environ.get('WORLD_SIZE', 1)) 
         self.outputs_f_ref_logits = outputs_f_ref_logits
 
@@ -100,6 +100,7 @@ class FamilyForgetDataset(Dataset):
         question = self.data[data_id][self.qk]
         answers = self.data[data_id][self.ak]
         indices = self.data[data_id]['index']
+        # если answers - строка, превратить в список с 1 элементом
         if isinstance(answers, str):
             answers = [answers]
 
@@ -146,6 +147,7 @@ def custom_data_collator(samples): # здесь батчи из одного и 
     input_ids = [s[0] for s in samples] # просто объединяем, например, input_ids для всех примеров 1 и того же факта
     labels = [s[1] for s in samples]
     attention_mask = [s[2] for s in samples]
+    # функция возвращает три 2-мерных тензора [batch_size, max_length]
     return torch.stack(input_ids), torch.stack(labels), torch.stack(attention_mask)
 
 def custom_data_collator_npo(samples):  # for npo

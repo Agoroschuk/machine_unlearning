@@ -71,6 +71,8 @@ class CustomFamilyTrainerForgetting(Trainer):
             input_ids, labels, attention_mask, outputs_f_ref_logits = forget_inputs
             outputs = model(input_ids,labels=labels, attention_mask=attention_mask)
             
+            # outputs_f_ref_logits - логиты исходной (reference) модели
+#           # outputs.logits - логиты текущей (забывающей) модели
             neg_log_ratio = outputs_f_ref_logits.to(outputs.logits.device) - outputs.logits
             loss = -F.logsigmoid(self.beta * neg_log_ratio).mean() * 2 / self.beta
 
