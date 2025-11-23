@@ -65,15 +65,22 @@ class CustomFamilyTrainerForgetting(Trainer):
             # outputs = model(input_ids, labels=labels, attention_mask=attention_mask)
             # loss = outputs.loss  # ← БЕРЕМ ПОТЕРИ КАК ЕСТЬ
             
+        # идея npo - наказывать модель за сходство со старыми логитами
         elif self.loss_type == 'npo':
-            # идея npo - наказывать модель за сходство со старыми логитами
+            # минутка размерностей для понимания
+            # inputs: [batch_size, seq_len]
+            # outputs.logits: [batch_size, seq_len, vocab_size]  
+            # outputs_f_ref_logits: [batch_size, seq_len, vocab_size]
+            # в seq_len входят как токены промпта, так и токены сгенерированного ответа, 
+            # при расчете loss токены промпта не учитывают (промпт = контекст)
+
             forget_inputs = inputs
             input_ids, labels, attention_mask, outputs_f_ref_logits = forget_inputs
             outputs = model(input_ids,labels=labels, attention_mask=attention_mask)
-            
             # outputs_f_ref_logits - логиты исходной (reference) модели
-#           # outputs.logits - логиты текущей (забывающей) модели
+            # outputs.logits - логиты текущей (забывающей) модели
             neg_log_ratio = outputs_f_ref_logits.to(outputs.logits.device) - outputs.logits
+            # mean() для усреднения по всем трем размерностям [batch_size, seq_len, vocab_size]
             loss = -F.logsigmoid(self.beta * neg_log_ratio).mean() * 2 / self.beta
 
         return (loss, outputs) if return_outputs else loss
@@ -158,8 +165,8 @@ class CustomFamilyTrainerForgetting(Trainer):
         return
 
         
-                        
-    def e_prepare_deepspeed(self, model): # для эффективного распределенного обучения
+    # для эффективного распределенного inference на нескольких GPU                    
+    def e_prepare_deepspeed(self, model): 
         # Adapted from accelerate: https://github.com/huggingface/accelerate/blob/739b135f8367becb67ffaada12fe76e3aa60fefd/src/accelerate/accelerator.py#L1473
         deepspeed_plugin = self.accelerator.state.deepspeed_plugin
         config_kwargs = copy.deepcopy(deepspeed_plugin.deepspeed_config)
@@ -188,8 +195,10 @@ class CustomFamilyTrainerForgetting(Trainer):
             config_kwargs["zero_optimization"]["stage"] = 0
         config_kwargs["optimizer"] = {"type": None}
         model, *_ = deepspeed.initialize(model=model, config=config_kwargs)
+        # отключение dropout, batchnorm для инференса
         model.eval()
         #set the gradients to false for every parameter
+        # веса модели при backward() не обновляются, но градиенты сохраняются
         for param in model.parameters():
             param.requires_grad = False
         

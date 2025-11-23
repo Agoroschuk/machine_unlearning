@@ -127,7 +127,7 @@ def main(cfg):
     print(f"max_steps: {max_steps}")
     print(f"steps_per_epoch: {steps_per_epoch}")
     # папка logs создается через раз и всегда пустая. Чем должна быть заполнена?
-    os.makedirs(f'{cfg.save_dir}/logs', exist_ok=True) 
+    os.makedirs(f'{cfg.save_dir}/logs', exist_ok=True)
     
     # задание параметров для обучения (если передать неизвестный аргумент, будет ошибка)
     training_args = transformers.TrainingArguments(
@@ -223,15 +223,23 @@ def main(cfg):
     if cfg.forget_loss == "npo":
         outputs_f_ref_dir = f"{cfg.save_dir}/outputs_f_ref.pt"
         if not os.path.exists(outputs_f_ref_dir):
-            ref_model = AutoModelForCausalLM.from_pretrained(cfg.model_path, config=config, use_flash_attention_2=model_cfg["flash_attention2"]=="true", torch_dtype=torch.bfloat16, token=os.environ['HF_TOKEN'], trust_remote_code = True)
+            ref_model = AutoModelForCausalLM.from_pretrained(
+                cfg.model_path,  # на предобученной модели делаем инференс 
+                config=config, 
+                use_flash_attention_2=model_cfg["flash_attention2"]=="true", 
+                torch_dtype=torch.bfloat16, 
+                token=os.environ['HF_TOKEN'], 
+                trust_remote_code = True)
             deepspeed_ref_model = trainer.e_prepare_deepspeed(ref_model)
             
             with torch.no_grad():
                 outputs_f_ref_logit_list = []
+                # для каждой пары вопрос-ответ, преобразованный к виду, доступному llm (train_dataset)
                 for data_id in tqdm(range(len(trainer.train_dataset))):
                     inputs = trainer.train_dataset[data_id]
                     input_ids, labels, attention_mask = inputs[0], inputs[1], inputs[2]
                     input_ids, labels, attention_mask = input_ids.unsqueeze(0).to(local_rank), labels.unsqueeze(0).to(local_rank), attention_mask.unsqueeze(0).to(local_rank)
+                    # здесь происходит инференс и выделение логитов предсказаний модели, сохраняется на cpu для сохранения памяти gpu
                     outputs_f_ref_logit = deepspeed_ref_model(input_ids, labels=labels, attention_mask=attention_mask).logits.cpu()
                     outputs_f_ref_logit_list.append(outputs_f_ref_logit)
             outputs_f_ref_logits = torch.cat(outputs_f_ref_logit_list)
