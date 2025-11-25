@@ -182,7 +182,7 @@ def main(cfg):
             cfg.model_path, # ← ЛОКАЛЬНЫЙ путь к весам "ft_model_checkpoint/ft_phi"
             config=config, # конфигурация модели из HF, хоть и есть локальная. Из HF будет полнее
             # use_flash_attention_2=model_cfg["flash_attention2"]=="true", 
-            attn_implementation="flash_attention_2",
+            attn_implementation="flash_attention_2",  #для скорости и уменьшения затрат памяти (оптимизированный мех-м внимания)
             torch_dtype=torch.bfloat16, 
             token=os.environ['HF_TOKEN'], 
             trust_remote_code = True)
