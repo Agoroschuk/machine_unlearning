@@ -86,7 +86,7 @@ class FamilyForgetDataset(Dataset):
             
         self.model_configs = model_configs
         # WORLD_SIZE = 1 означает нераспределенную тренировку на GPU
-        self.world_size = int(os.environ.get('WORLD_SIZE', 1)) 
+        self.world_size = int(os.environ.get('WORLD_SIZE', 1))
         self.outputs_f_ref_logits = outputs_f_ref_logits
 
     def __len__(self):

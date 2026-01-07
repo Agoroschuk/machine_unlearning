@@ -39,7 +39,8 @@ def print_trainable_parameters(model):  # единственная оставл�
 
 # декоратор гидра делает обычной функции конфигурируемое приложение
 # с управлением через конфиги и cmd, из config/forget_family.yaml (forget.yaml переопределяется на forget_family.yaml в ga.sh и др. .sh) объект cfg
-@hydra.main(version_base=None, config_path="config", config_name="forget")
+# гидра забирает параметры из командной строки/bash файла или из спец. конфиг.файла .yaml (здесь смесь методов)
+@hydra.main(version_base=None, config_path="config", config_name="forget_family")
 def main(cfg):
     num_devices = int(os.environ.get('WORLD_SIZE', 1)) # число устройств gpu
     print(f"num_devices: {num_devices}")
