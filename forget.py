@@ -74,7 +74,7 @@ def main(cfg):
     subsample = torch.load(cfg.subsample_path, weights_only = False)
     if "family" in cfg.data_path:
         if cfg.unlearn_data_id != -1:
-            # subsample содержит все 55 фактов видимо
+            # subsample содержит все 55 фактов
             shuffled_unlearn_data_id = int(subsample[cfg.unlearn_data_id])
             # FamilyForgetDataset возвращает датасет для забывания
             torch_format_dataset = FamilyForgetDataset(
@@ -113,7 +113,6 @@ def main(cfg):
     else:
         lr = float(cfg.lr)
     
-    # настройка параметров обучения
     if cfg.forget_loss == "ga":
         num_epochs = model_cfg["ga_num_epochs"]
     elif cfg.forget_loss == "npo":
@@ -121,9 +120,14 @@ def main(cfg):
     
     # расчет числа шагов обучения для правильной настройки max_steps
     batch_size = cfg.batch_size
-    # чтобы обновлять веса каждые gradient_accumulation_steps, а не на каждом шаге
+    # чтобы обновлять веса каждые gradient_accumulation_steps, а не после каждого батча (градиенты, само собой, накапливаются после каждого батча)
     gradient_accumulation_steps = cfg.gradient_accumulation_steps
+
+    # len(torch_format_dataset) = число примеров в забываемом датасете (1 у авторов)
+    # У меня steps_per_epoch = 1, что практически отключает разогрев в обучении, но наверное есть смысл делать steps_per_epoch > 1, 
+    # т.к. это определит число шагов в warmup (эвристика)
     steps_per_epoch = len(torch_format_dataset)//(batch_size*gradient_accumulation_steps*num_devices)
+    # max_steps тоже эвристика
     max_steps = int(num_epochs*len(torch_format_dataset))//(batch_size*gradient_accumulation_steps*num_devices)
     print(f"max_steps: {max_steps}")
     print(f"steps_per_epoch: {steps_per_epoch}")
@@ -134,21 +138,22 @@ def main(cfg):
     training_args = transformers.TrainingArguments(
         per_device_train_batch_size=batch_size, #кол-во примеров на трейне для оценки
         per_device_eval_batch_size=batch_size,
-        gradient_accumulation_steps=gradient_accumulation_steps, # накопление градиентов перед обновлением весов
-        warmup_steps=max(1, steps_per_epoch),
-        max_steps=max_steps,
+        gradient_accumulation_steps=gradient_accumulation_steps, # накопление градиентов перед обновлением весов, дает возможность обновления раз в несколько батчей
+        warmup_steps=max(1, steps_per_epoch), # постепенный рост lr к максимальному за warmup_steps
+        max_steps=max_steps, # число вызовов optimizer.step(), при сложном обучении недостаточно лишь num_epochs, и этот параметр важен (но до конца не ясно)
+        # ДОРАЗОБРАТЬ, ЗАЧЕМ MAX_STEPS НУЖЕН И В ЧЕМ ОТЛИЧИЕ ОТ N_EPOCHS 
         learning_rate=lr,
         bf16=True, # точность меньше, чем у fp32, но выше, чем у fp16 => скорость, градиенты сохраняются лучше
-        bf16_full_eval=True,
+        bf16_full_eval=True, # использовать bf16 и на evaluation
         logging_steps=max(1,max_steps//20),
         logging_dir=f'{cfg.save_dir}/logs',
         output_dir=cfg.save_dir,
         # optim не определяет ф-цию потерь, а лишь оптимизирует ее
         optim="paged_adamw_32bit", #разница с AdamW только в уменьшенном использовании памяти
-        save_strategy="no", # это вроде про сохранение именно модели, а не логов
+        save_strategy="no", # не сохранять промежуточные состояния модели каждые save_steps шагов
         ddp_find_unused_parameters= False,
         deepspeed='config/ds_config.json',
-        weight_decay = cfg.weight_decay, #l2-рег.
+        weight_decay = cfg.weight_decay, #l2-рег. (штраф за большие веса для предотвращения переобучения)
         eval_steps = 1,
         eval_strategy = "steps",
         seed=cfg.seed,

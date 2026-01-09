@@ -1,3 +1,4 @@
+# все тяжеловесные импорты для обработки данных
 import torch
 from torch import nn
 from torch.utils.data import Dataset
@@ -25,21 +26,22 @@ def convert_raw_data_to_model_format(tokenizer, max_length, question, answer, mo
     # дополнение до максимальной длины заполняем eos-токеном в случае input_ids и [0] в attention_mask
     pad_length = max_length - len(encoded.input_ids)
     pad_input_ids = encoded['input_ids'] + [tokenizer.eos_token_id] * pad_length
-    # [0] = pad
+    # [0] = pad (не влияют на loss и не портят вычисления), [1] = реальные токены
     pad_attention_mask = encoded['attention_mask'] + [0] * pad_length
     if len(encoded.input_ids) == max_length:
         label = encoded.input_ids
     else:
-        # позиции, заполненные -100 модель не учится предсказывать
+        # позиции, заполненные -100, модель не учится предсказывать, т.к. это прописано в torch (torch.nn.CrossEntropyLoss(ignore_index=-100))
+        # + возможно появляется лишний eos токен (проверить позже)
         label = encoded['input_ids'] + [tokenizer.eos_token_id] + [-100] * (pad_length-1)
 
     # если full_text = "Question: Кто отец John?\nAnswer: Mike", то 
     # encoded_answer = [A, n, s, w, e, r, :, M, i, k, e]
     encoded_answer = tokenizer(
         new_answer, 
-        add_special_tokens=True, 
-        max_length=max_length, 
-        truncation=True, 
+        add_special_tokens=True,
+        max_length=max_length,
+        truncation=True,
     )
         
         
@@ -52,7 +54,7 @@ def convert_raw_data_to_model_format(tokenizer, max_length, question, answer, mo
     # # Модель получает:
     # inputs = {
     #     'input_ids': pad_input_ids,      # Полный текст
-    #     'attention_mask': pad_attention_mask, # Куда смотреть
+    #     'attention_mask': pad_attention_mask, # Куда смотреть 
     #     'labels': label                  # Что предсказывать (только ответ)
     # }
 
@@ -68,8 +70,8 @@ class FamilyForgetDataset(Dataset):
             model_configs, 
             max_length=512,  
             unlearn_data_id=0, 
-            question_key=None, 
-            answer_key=None, 
+            question_key=None, #question4
+            answer_key=None, #answer4
             outputs_f_ref_logits=None):
         # Всегда вызывать super() для совместимости - хорошая практика
         # Даже если в родительском классе сейчас нет конструктора, он может быть добавлен позже => совместимость останется
@@ -85,11 +87,12 @@ class FamilyForgetDataset(Dataset):
         self.unlearn_data_id = unlearn_data_id
             
         self.model_configs = model_configs
-        # WORLD_SIZE = 1 означает нераспределенную тренировку на GPU
+        # WORLD_SIZE = 1 означает нераспределенное обучение на GPU
         self.world_size = int(os.environ.get('WORLD_SIZE', 1))
         self.outputs_f_ref_logits = outputs_f_ref_logits
 
     def __len__(self):
+        # если бы world_size =2 был, один и тот же unlearn_data_id бы раздвоился, чтобы далее ... (дописать)
         return len(self.unlearn_data_id) * self.world_size
 
     def __getitem__(self, idx):
@@ -116,7 +119,8 @@ class FamilyForgetDataset(Dataset):
             pad_attention_mask_list.append(converted_data[2])
 
         if self.outputs_f_ref_logits is not None: # отдельная логика для npo
-            return torch.stack(pad_input_ids_list).squeeze(),\
+            # squeeze схлопывает единичные размерности
+            return torch.stack(pad_input_ids_list).squeeze(),\ 
                     torch.stack(label_list).squeeze(),\
                     torch.stack(pad_attention_mask_list).squeeze(),\
                     self.outputs_f_ref_logits[idx],\
