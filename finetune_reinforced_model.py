@@ -100,7 +100,7 @@ def main(cfg):
             break
 
     if path_found:
-        print("INSIDE PATTH FOUND")
+        print("INSIDE PATH FOUND")
         config = AutoConfig.from_pretrained(model_id)
 
         print("Loading from checkpoint")

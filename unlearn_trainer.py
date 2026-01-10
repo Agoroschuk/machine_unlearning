@@ -10,6 +10,7 @@ import numpy as np
 import deepspeed
 from transformers.integrations.deepspeed import deepspeed_init, deepspeed_load_checkpoint, is_deepspeed_available
 
+
 class CustomTrainer(Trainer): # должен подходить для обычного обучения и finetuning
     def compute_loss(self, model, inputs, return_outputs=False):
         # labels = те же токены, что input_ids, но со сдвигом на 1 позицию вперед
@@ -36,6 +37,13 @@ class CustomTrainer(Trainer): # должен подходить для обыч�
 
 # ядро забывания
 class CustomFamilyTrainerForgetting(Trainer):
+    """
+    compute_loss() → вызывается на каждом шаге обучения для расчета loss
+    evaluate() → вызывается по расписанию (eval_steps) для сохранения
+    reliable_save_model() → вызывается из evaluate() для надежного сохранения
+    prediction_step() → вызывается при trainer.predict() для инференса
+    e_prepare_deepspeed() → вспомогательный метод для настройки DeepSpeed
+    """
     def __init__(self, *args, **kwargs):
         # извлечение кастомных аргументов
         self.loss_type = kwargs.pop('forget_loss')
@@ -71,8 +79,8 @@ class CustomFamilyTrainerForgetting(Trainer):
             # inputs: [batch_size, seq_len]
             # outputs.logits: [batch_size, seq_len, vocab_size]  
             # outputs_f_ref_logits: [batch_size, seq_len, vocab_size]
-            # в seq_len входят как токены промпта, так и токены сгенерированного ответа, 
-            # при расчете loss токены промпта не учитывают (промпт = контекст)
+            # в seq_len входят как токены вопроса, так и токены сгенерированного ответа, 
+            # при расчете loss токены вопроса не учитывают (вопрос = контекст)
 
             forget_inputs = inputs
             input_ids, labels, attention_mask, outputs_f_ref_logits = forget_inputs
@@ -90,7 +98,7 @@ class CustomFamilyTrainerForgetting(Trainer):
         input_ids, labels, attention_mask = inputs
         # forward pass
         with torch.no_grad(): # не строится граф вычислений, ускорение
-            outputs = model(input_ids,labels=labels, attention_mask=attention_mask)
+            outputs = model(input_ids, labels=labels, attention_mask=attention_mask)
             logits = outputs.logits
             loss = outputs.loss
         return (loss, logits, labels)
@@ -149,7 +157,7 @@ class CustomFamilyTrainerForgetting(Trainer):
             # сохранение 
             curr_save_dir = os.path.join(self.save_dir, f"checkpoint-{curr_step}")
             # self.save_model(curr_save_dir)
-            # более надежное сохранение на google drive, с повторениями и ожиданиями
+            # более надежное сохранение на google drive, с повторениями и ожиданиями, без этого многие чекпоинты не сохранялись
             self.reliable_save_model(curr_save_dir)
         # сохранение модели в конце каждой эпохи
         elif self.save_step_pattern == "every_epoch":

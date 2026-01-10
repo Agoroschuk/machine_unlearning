@@ -110,7 +110,7 @@ class Rule:
         _get_up_edges_list(var_value)
         
         up_edges_list = []
-        # пусть dc_var_value= [10, 20, 30]
+        # пусть dc_var_value = [10, 20, 30]
         for dc_var_value in dc_var_value_list:
             up_edges = []
             # left_tuples = (0, 'father', 1), (1, 'brother', 2)
@@ -126,7 +126,7 @@ class Rule:
     def get_dc_edges_list(self, edge_list, edge_type_list, person_list):
         """
         Ищет все возможные связи, которые могут быть выведены из существующих с помощью правил.
-        Связи должны удовлетворять требованиям по полу и не сущестствовать еще в графе.
+        Связи должны удовлетворять требованиям по полу и не существовать еще в графе.
 
         Рассмотрим тот же пример:
         left_tuples = [(0, 'father', 1), (1, 'brother', 2)]

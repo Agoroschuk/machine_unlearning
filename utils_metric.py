@@ -6,7 +6,6 @@ from tqdm import tqdm
 from copy import deepcopy
 
 # minimal_set включает сам unlearn_data_id
-
 def check_if_in_deductive_closure(unlearn_data_id, minimal_set, edge_list, edge_type_list, dc_edge_list, dc_edge_type_list, rule_list):
     """
     Функция проверяет, можно ли вывести целевой факт из минимального мн-ва minimal set

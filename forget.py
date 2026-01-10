@@ -135,7 +135,9 @@ def main(cfg):
     os.makedirs(f'{cfg.save_dir}/logs', exist_ok=True)
     
     # задание параметров для обучения (если передать неизвестный аргумент, будет ошибка)
-    training_args = transformers.TrainingArguments(
+    training_a
+    
+    rgs = transformers.TrainingArguments(
         per_device_train_batch_size=batch_size, #кол-во примеров на трейне для оценки
         per_device_eval_batch_size=batch_size,
         gradient_accumulation_steps=gradient_accumulation_steps, # накопление градиентов перед обновлением весов, дает возможность обновления раз в несколько батчей
@@ -151,7 +153,7 @@ def main(cfg):
         # optim не определяет ф-цию потерь, а лишь оптимизирует ее
         optim="paged_adamw_32bit", #разница с AdamW только в уменьшенном использовании памяти
         save_strategy="no", # не сохранять промежуточные состояния модели каждые save_steps шагов
-        ddp_find_unused_parameters= False,
+        ddp_find_unused_parameters= False, # Distributed Data Parallel for multi-GPU
         deepspeed='config/ds_config.json',
         weight_decay = cfg.weight_decay, #l2-рег. (штраф за большие веса для предотвращения переобучения)
         eval_steps = 1,
@@ -168,27 +170,29 @@ def main(cfg):
     path_found = False
     # cfg.model_path переопределяется в вызове .sh соответствующего метода
     # CUDA_VISIBLE_DEVICES=${devices} torchrun --nproc_per_node=1 ..... forget_loss=${forget_loss} model_path=${model_path}; 
-    for file in os.listdir(cfg.model_path):
-        if re.search(r"pytorch.*\.bin", file):
+    for file in os.listdir(cfg.model_path): # os.listdir получает все файлы в директории cfg.model_path
+        if re.search(r"pytorch.*\.bin", file): # поиск файлов с pytorch в начале и .bin в конце (веса модели)
             path_found = True
             break
         
-        if re.search(r"model-*\.safetensors", file):
-            path_found = True
+        if re.search(r"model-*\.safetensors", file): # * значит 0 или более повторений предыдущего символа, / - экранирование след.символа
+            path_found = True # этот код не найдет model-00001-of-00003.safetensors, хотя должен (r"model-.*\.safetensors" должен помочь, т.к. '.' - любой символ)
             break
 
 
     if path_found:
         # Загружает конфигурацию модели ИЗ Hugging Face, даже если веса берутся локально!
+        # Конфигурация = hidden_size, num_hidden_layers, num_attention_heads, vocab_size, other hyperpar
         config = AutoConfig.from_pretrained(model_id)
 
         print("Loading from checkpoint")
         # загрузка модели
+        # класс AutoModelForCausalLM определит тип модели по конфигурации (пр. LlamaForCausalLM)
         model = AutoModelForCausalLM.from_pretrained(
             cfg.model_path, # ← ЛОКАЛЬНЫЙ путь к весам "ft_model_checkpoint/ft_phi"
             config=config, # конфигурация модели из HF, хоть и есть локальная. Из HF будет полнее
             # use_flash_attention_2=model_cfg["flash_attention2"]=="true", 
-            attn_implementation="flash_attention_2",  #для скорости и уменьшения затрат памяти (оптимизированный мех-м внимания)
+            attn_implementation="flash_attention_2",
             torch_dtype=torch.bfloat16, 
             token=os.environ['HF_TOKEN'], 
             trust_remote_code = True)
@@ -201,7 +205,6 @@ def main(cfg):
     # выбор случайного токена при генерации на основе распределения вероятностей, 
     # а не токена с максимальной вероятностью, ссылка на статью, где указано, что в llama жадный алгоритм по умолчанию
     # жадная генерация дает более однообразные ответы, из-за отсутствия разнообразия оценка м.б. занижена
-    # ???
     model.generation_config.do_sample = True
     
     #now we have a HuggingFace model 
@@ -223,7 +226,10 @@ def main(cfg):
         save_step_pattern=cfg.save_step_pattern,
         save_dir=cfg.save_dir
     )
+    # отключение мех-ма кэширования (KV-cache) в мех-ме attention
+    # А что в исследовании есть инференс? И есть ли он тут в том понимании, где рекомендуется делать True? Проверить
     model.config.use_cache = False  # silence the warnings. Please re-enable for inference!
+    # По идее на инференсе должно быть быстрее с model.config.use_cache = True
     
     # особенность для npo - предварительное вычисление reference логитов
     if cfg.forget_loss == "npo":
@@ -262,7 +268,7 @@ def main(cfg):
     trainer.train()
 
     #delete all "global_step*" files in the save_dir/checkpoint-*/ directories
-    # удаление файлов, начинающихся с global_step, после обучения
+    # удаление файлов, начинающихся с global_step в checkpoint, после обучения
     if local_rank == 0:
         for file in Path(cfg.save_dir).glob("checkpoint-*"):
             for global_step_dir in file.glob("global_step*"):
