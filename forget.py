@@ -135,9 +135,7 @@ def main(cfg):
     os.makedirs(f'{cfg.save_dir}/logs', exist_ok=True)
     
     # задание параметров для обучения (если передать неизвестный аргумент, будет ошибка)
-    training_a
-    
-    rgs = transformers.TrainingArguments(
+    training_args = transformers.TrainingArguments(
         per_device_train_batch_size=batch_size, #кол-во примеров на трейне для оценки
         per_device_eval_batch_size=batch_size,
         gradient_accumulation_steps=gradient_accumulation_steps, # накопление градиентов перед обновлением весов, дает возможность обновления раз в несколько батчей

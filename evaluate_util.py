@@ -4,10 +4,10 @@ import torch
 from tqdm import tqdm
 
 def eval_qa_vllm(
-    dataset, 
-    model_eval, 
-    qk="question", 
-    ak="answer", 
+    dataset, # biographies of relationships in text q-a format
+    model_eval, # ready for inference llm from checkpoint after unlearning
+    qk="question", # значение по умолчанию, будет переопределено вызовом с quwstion4 из vllm_eval.py
+    ak="answer", # аналогично
     question_start_tag="[INST] ", 
     question_end_tag=" [/INST]", 
     answer_tag=""

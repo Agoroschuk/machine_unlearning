@@ -39,7 +39,7 @@ for cur_save_dir in ${save_path}/*/; do
     declare -A model_to_modelid=( ["llama2-7b"]="meta-llama/Llama-2-7b" ["llama3-8b"]="meta-llama/Meta-Llama-3-8B" ["gpt2-xl"]="openai-community/gpt2-xl" ["phi"]="microsoft/phi-1_5")
     model_id="${model_to_modelid[$model]}"
     
-    # Оценка способностей модели (LM-eval) - вроде пока вообще не работает
+    # Оценка способностей модели (lm-evaluation-harness) - вроде пока вообще не работает
     # tasks piqa,race,mmlu  - Тесты на здравый смысл, чтение, знания
     CUDA_VISIBLE_DEVICES=${devices} lm_eval --model vllm \
         --model_args pretrained=${cur_save_dir},tokenizer=${model_id},tensor_parallel_size=1,dtype=auto,gpu_memory_utilization=0.8,data_parallel_size=1 \

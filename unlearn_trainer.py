@@ -104,6 +104,11 @@ class CustomFamilyTrainerForgetting(Trainer):
         return (loss, logits, labels)
 
     def reliable_save_model(self, curr_save_dir, max_retries:int=10, sleep_time: int=5):
+        """
+        С помощью метода save_model из класса Trainer (hugging face) сохраняется модель, токенизатор, конфигурация
+        Реализовано сохранение модели с пом. save_model до тех пор, пока сохранение точно не произойдет
+        Ранее наблюдалась проблема с сохранением из-за, предположительно, лагов записи на google drive, а не локально
+        """
         # список не полный, главное - model.safetensors
         required_files = [
             'config.json',
