@@ -136,7 +136,7 @@ def get_minimal_nec_unlearn_and_not_included_unlearn(unlearn_data_id, edge_list,
 def get_prec_rec_acc(minimal_set, unlearn_ind):
     # создаем np.array из 0 размером 400
     minimal_set_ind = np.zeros(len(unlearn_ind))
-    # 1 ставим у элементов, номера которых есть в minimal_set
+    # 1 ставим у элементов, номера которых есть в minimal_set, т.е. которые должны быть забаты
     minimal_set_ind[list(minimal_set)] = 1
     prec = (minimal_set_ind * unlearn_ind).sum() / max(unlearn_ind.sum(), 1e-8)
     # minimal_set_ind * unlearn_ind показывает, сколько забыто фактов из мин.мн-ва для забывания
@@ -144,7 +144,7 @@ def get_prec_rec_acc(minimal_set, unlearn_ind):
     # В unlearn_ind 1 на тех местах, которые забылись, в minimal_set_ind 1 на тех местах, которые должны забыться
     # то есть на позициях minimal_set_ind
     rec = (minimal_set_ind * unlearn_ind).sum() / minimal_set_ind.sum()
-    # 1 - (сколько забыто среди тех, кто не надо забывать/размер мн-ва того, что забывать не надо)
+    # 1 - (сколько забыто среди того, что не надо забывать/размер мн-ва того, что забывать не надо)
     # Чем больше лишнего забыто, тем ниже accuracy
     acc = 1 - (unlearn_ind * (1 - minimal_set_ind)).sum() / (len(unlearn_ind) - len(minimal_set))
     return prec, rec, acc
@@ -187,7 +187,8 @@ def get_edge_id(edge, edge_list):
         if _edge == edge:
             return i
         
-# edge_list, edge_type_list, rule_list, person_list = (69, 67), father, Sloane Lee, <utils_data_building.Person object at 0x7e13e265ea80>    
+# edge_list, edge_type_list, rule_list, person_list = (69, 67), father, Sloane Lee, <utils_data_building.Person object at 0x7e13e265ea80>
+# but for all 400 relationships 
 def get_deductive_closure(edge_list, edge_type_list, rule_list, person_list):
     """
     Если я правильно понимаю, функция работает, пока не найдет все факты, которые только можно логически вывести из уже имеющихся
@@ -199,11 +200,11 @@ def get_deductive_closure(edge_list, edge_type_list, rule_list, person_list):
     new_edge_type_list = []
     cur_iter=0
     while len(new_edge_list) > 0 or cur_iter == 0:
-        # в while должны зайти не более,чем дважды по идее
+        # Если какой-то факт добавился в new_edge_list в процессе обхода правил, то процедура проверки повторяется
         new_edge_list = [] 
         new_edge_type_list = []
         for rule in rule_list:
-            # обходим все rule и выходим, все факты вывели т.о. (факты из имеющихся выводятся в get_dc_edges_list)
+            # обходим все 48 rule и выходим, все факты вывели т.о. (факты из имеющихся выводятся в get_dc_edges_list)
             _new_edge_list, _new_edge_type_list = rule.get_dc_edges_list(dc_edge_list, dc_edge_type_list, person_list)
             dc_edge_list = dc_edge_list + _new_edge_list
             dc_edge_type_list = dc_edge_type_list + _new_edge_type_list

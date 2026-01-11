@@ -38,7 +38,7 @@ shuffled_edge_id_list = torch.load("synthetic_data/subsample.pt")
 # args - обработанные аргументы командной строки
 shuffled_unlearn_data_id = shuffled_edge_id_list[args.unlearn_data_id]
 
-# Сюда попадаем, когда не указан input_dir (предвычисления)
+# Сюда попадаем, когда не указан input_dir
 if args.input_dir is None:
     print("pre-compute the minimal deep unlearning set only")
     precision_list, recall_list, accuracy_list, minimal_unlearn_list = get_valid_unlearn_general(
@@ -54,14 +54,15 @@ if args.input_dir is None:
 
 # Если указан input_dir, попадаем сюда
 # В rel_ind 1 у сохранившихся после unlearning фактов, массив из 1 и 0 размером 400
-# Как именно relationships_correct.pt и biographies_correct.pt получены?
+# relationships_correct.pt и biographies_correct.pt получены в vllm_eval.py
 rel_ind = np.asarray(torch.load(f"{args.input_dir}/relationships_correct.pt")).astype(np.float32)
 # обратный массив из 0 и 1 размером 400
 # Если в rel_ind 1, значит, факт не забылся, значит unlearn_ind будет 0. В unlearn_ind 1 у забытых фактов
 unlearn_ind = 1 - rel_ind
 bio_ind = torch.load(f"{args.input_dir}/biographies_correct.pt")
 
-# в каждом массиве набор метрик от разных minimal_set (так как min_set не единственно) для забывания shuffled_unlearn_data_id
+# в каждом массиве набор метрик от разных minimal_set для забывания shuffled_unlearn_data_id
+# (так как min_set не единственно, максимум = 17 таких множеств согласно статье) 
 precision_list, recall_list, accuracy_list, minimal_unlearn_list = get_valid_unlearn_general(
     shuffled_unlearn_data_id, 
     edge_list, 
