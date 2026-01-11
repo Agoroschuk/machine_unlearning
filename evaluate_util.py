@@ -5,18 +5,18 @@ from tqdm import tqdm
 
 def eval_qa_vllm(
     dataset, # biographies of relationships in text q-a format
-    model_eval, # ready for inference llm from checkpoint after unlearning
-    qk="question", # значение по умолчанию, будет переопределено вызовом с quwstion4 из vllm_eval.py
-    ak="answer", # аналогично
+    model_eval, # ready for inference (prepared by vllm) model from checkpoint after unlearning
+    qk="question", # значение по умолчанию, будет переопределено вызовом с question4 из vllm_eval.py
+    ak="answer", # аналогично, любые параметры могут быть перопределены
     question_start_tag="[INST] ", 
     question_end_tag=" [/INST]", 
     answer_tag=""
 ):  
-    # формирование списка промптов к каждому факту из relationships или biographies facts
+    # формирование списка промптов к каждому факту из relationships или biographies facts, значения тегов берем из конфига
     prompts = [question_start_tag + data[qk] + question_end_tag for data in dataset]
     # настройка параметров генерации
-    # temperature = 0 <=> генерация точная, детерминированная
-    # top_p:берем лишь те токены, вероятность которых <= 0.6
+    # temperature = 0 <=> выбор токена с макс.вер-тью
+    # top_p:берем мин. кол-во наиб. вероятных токенов, кумулятивная вероятность которых >= 0.6
     # max_tokens: в ответе максимум 10 токенов
     sampling_params = SamplingParams(temperature=0, top_p=0.6, max_tokens=10)
     # генерация ответов на промпты в соответствии с настройкой
@@ -26,7 +26,7 @@ def eval_qa_vllm(
     responses = model_eval.generate(prompts, sampling_params)
     # извлечение текста из каждого response
     outputs = [response.outputs[0].text for response in responses]
-    # проверяется, есть ли в text правильный ответ, correct = булев массив
+    # проверяется, есть ли в сгенерированном ответе (text) правильный ответ, correct = булев массив
     # здесь например, прав. ответ = 1908 [text='1908fatherfatherfatherfatherfatherfatherfatherfather']
     correct = [data[ak].lower() in output.lower() for data, output in zip(dataset, outputs)]
     return correct, responses

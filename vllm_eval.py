@@ -16,7 +16,7 @@ parser = argparse.ArgumentParser(description='evaluate llm by vllm')
 parser.add_argument('--curr_save_dir', type=str, default=None)
 parser.add_argument('--model_family', type=str, default="llama2-7b")
 parser.add_argument('--clean_cache', type=str, default="false")
-parser.add_argument('--config_path', type=str, default="config/")
+parser.add_argument('--config_path', type=str, default="config/") # т.к. config_path из .sh файла не передан, значение его берется из default
 args = parser.parse_args()
 
 # curr_save_dir = конкретный чекпоинт в save_path=/content/drive/MyDrive/Unlearning/models/unlearning_checkpoint/ga/${model}/${unlearn_data_id}
@@ -38,7 +38,7 @@ if args.clean_cache == "true":
 
 Path(curr_save_dir).mkdir(parents=True, exist_ok=True)
 
-# Здесь оцениваются чекпоинты из логов
+# Здесь происходит инференс чекпоинтов на разных стадиях забывания (получение biographies/relationships_correct.pt)
 for eval_dataset, eval_dataset_name in zip(eval_dataset_list, eval_dataset_name_list):
     with torch.no_grad():
         # correct - булев массив, где, если я правильно понимаю, True = факт сохранился

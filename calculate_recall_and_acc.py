@@ -28,7 +28,7 @@ args = parser.parse_args()
 # 400 relationships
 # (69, 67), father, Sloane Lee, <utils_data_building.Person object at 0x7e13e265ea80>: 'age', 'birthplace', 'children', 'father', 'gender', 'generation', 'husband', 'if_build', 'job', 'mother', 'name', 'wife'
 (edge_list, edge_type_list, fixed_names, person_list) = torch.load("synthetic_data/family-200-graph.pt")
-# <class 'utils_data_building.Rule'>:  [(0, 'wife', 1)], (1, 'husband', 0)
+# <class 'utils_data_building.Rule'>:  [(0, 'wife', 1)], (1, 'husband', 0)]
 rule_list = torch.load("synthetic_data/family_rule.pt")
 # вывод на основании правил и имеющихся фактов всех возможных следствий для полноты картины
 dc_edge_list, dc_edge_type_list = get_deductive_closure(edge_list, edge_type_list, rule_list, person_list)
