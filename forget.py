@@ -70,7 +70,7 @@ def main(cfg):
     tokenizer = AutoTokenizer.from_pretrained(model_id)
     tokenizer.pad_token = tokenizer.eos_token
 
-    #get the the unlearn_data_id in shuffled id, ПОДГОТОВКА ДАТАСЕТА для забывания
+    #get the the unlearn_data_id in shuffled id, ПОДГОТОВКА ДАТАСЕТА для забывания (но тут пока только целевая пара вопрос-ответ, minimal set еще не создан)
     subsample = torch.load(cfg.subsample_path, weights_only = False)
     if "family" in cfg.data_path:
         if cfg.unlearn_data_id != -1:
@@ -78,7 +78,8 @@ def main(cfg):
             shuffled_unlearn_data_id = int(subsample[cfg.unlearn_data_id])
             # FamilyForgetDataset возвращает датасет для забывания
             torch_format_dataset = FamilyForgetDataset(
-                cfg.data_path, tokenizer=tokenizer, 
+                cfg.data_path, 
+                tokenizer=tokenizer, 
                 model_configs=model_cfg, 
                 max_length=500, # макс.длина послед-ти токенов для модели, остальное ОБРЕЗАЕТСЯ
                 unlearn_data_id=shuffled_unlearn_data_id, 
@@ -125,7 +126,7 @@ def main(cfg):
 
     # len(torch_format_dataset) = число примеров в забываемом датасете (1 у авторов)
     # У меня steps_per_epoch = 1, что практически отключает разогрев в обучении, но наверное есть смысл делать steps_per_epoch > 1, 
-    # т.к. это определит число шагов в warmup (эвристика)
+    # т.к. это определит число шагов в warmup (эвристика), // = целочисленное деление
     steps_per_epoch = len(torch_format_dataset)//(batch_size*gradient_accumulation_steps*num_devices)
     # max_steps тоже эвристика
     max_steps = int(num_epochs*len(torch_format_dataset))//(batch_size*gradient_accumulation_steps*num_devices)
@@ -140,7 +141,7 @@ def main(cfg):
         per_device_eval_batch_size=batch_size,
         gradient_accumulation_steps=gradient_accumulation_steps, # накопление градиентов перед обновлением весов, дает возможность обновления раз в несколько батчей
         warmup_steps=max(1, steps_per_epoch), # постепенный рост lr к максимальному за warmup_steps
-        max_steps=max_steps, # число вызовов optimizer.step(), при сложном обучении недостаточно лишь num_epochs, и этот параметр важен (но до конца не ясно)
+        max_steps=max_steps, # число вызовов optimizer.step(), не то же самое, что num_epochs, до конца не ясно, зачем нужен
         # ДОРАЗОБРАТЬ, ЗАЧЕМ MAX_STEPS НУЖЕН И В ЧЕМ ОТЛИЧИЕ ОТ N_EPOCHS 
         learning_rate=lr,
         bf16=True, # точность меньше, чем у fp32, но выше, чем у fp16 => скорость, градиенты сохраняются лучше
@@ -252,13 +253,15 @@ def main(cfg):
                     # здесь происходит инференс и выделение логитов предсказаний модели, сохраняется на cpu для сохранения памяти gpu
                     outputs_f_ref_logit = deepspeed_ref_model(input_ids, labels=labels, attention_mask=attention_mask).logits.cpu()
                     outputs_f_ref_logit_list.append(outputs_f_ref_logit)
-            outputs_f_ref_logits = torch.cat(outputs_f_ref_logit_list)
+            # torch.cat объединяет тензоры, не добавляя размерность в начале 
+            outputs_f_ref_logits = torch.cat(outputs_f_ref_logit_list) 
                     
             deepspeed_ref_model.destroy()
             del deepspeed_ref_model
             del ref_model
             gc.collect()
             torch.cuda.empty_cache()
+            # torch.save(что сохранять, куда сохранять)
             torch.save(outputs_f_ref_logits, outputs_f_ref_dir)
         trainer.train_dataset.outputs_f_ref_logits = torch.load(outputs_f_ref_dir)
     

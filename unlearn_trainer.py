@@ -178,7 +178,9 @@ class CustomFamilyTrainerForgetting(Trainer):
         return
 
         
-    # для эффективного распределенного inference на нескольких GPU                    
+    # deepspeed - библиотека для оптимизации глубокого обучения
+    # https://huggingface.co/docs/transformers/deepspeed   
+    # Each stage progressively saves more memory, allowing really large models to fit and train on a single GPU              
     def e_prepare_deepspeed(self, model): 
         # Adapted from accelerate: https://github.com/huggingface/accelerate/blob/739b135f8367becb67ffaada12fe76e3aa60fefd/src/accelerate/accelerator.py#L1473
         deepspeed_plugin = self.accelerator.state.deepspeed_plugin
@@ -215,4 +217,4 @@ class CustomFamilyTrainerForgetting(Trainer):
         for param in model.parameters():
             param.requires_grad = False
         
-        return model
+        return model # та же модель, но обернутая в DeepSpeed engine и настроенная для инференса

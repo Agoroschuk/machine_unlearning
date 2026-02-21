@@ -1,4 +1,4 @@
-# только легковесные импорты, поэтому datasets вызывается в data_module.py
+# только легковесные импорты, поэтому datasets библиотека hf импортируется в data_module.py
 import yaml
 import copy
 import numpy as np
@@ -23,5 +23,5 @@ def get_model_identifiers_from_yaml(model_family, config_path="config"):
 
 def add_dataset_index(dataset):
     indexing = np.arange(len(dataset))
-    dataset = dataset.add_column('index', indexing)
+    dataset = dataset.add_column('index', indexing) # индексирование от 0 до n-1, add_column - метод библиотеки hf dataset
     return dataset

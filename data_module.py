@@ -1,9 +1,9 @@
 # все тяжеловесные импорты для обработки данных
 import torch
 from torch import nn
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset #для удобного доступа к данным с пом. встроенного метода getitem
 from torch.nn.utils.rnn import pad_sequence
-import datasets
+import datasets #HF lib
 from utils import get_model_identifiers_from_yaml, add_dataset_index
 import os
 import numpy as np
@@ -23,7 +23,7 @@ def convert_raw_data_to_model_format(tokenizer, max_length, question, answer, mo
         max_length=max_length, 
         truncation=True, # отрезать токены, выходящие за пределы max_length
     )
-    # дополнение до максимальной длины заполняем eos-токеном в случае input_ids и [0] в attention_mask
+    # дополнение до максимальной длины: заполняем eos-токеном в случае input_ids и [0] в attention_mask
     pad_length = max_length - len(encoded.input_ids)
     pad_input_ids = encoded['input_ids'] + [tokenizer.eos_token_id] * pad_length
     # [0] = pad (не влияют на loss и не портят вычисления), [1] = реальные токены
@@ -47,15 +47,15 @@ def convert_raw_data_to_model_format(tokenizer, max_length, question, answer, mo
         
     #change label to -100 for question tokens (чтобы модель не генерировала вопрос)
 #     print(encoded['input_ids'][num_question_tokens], label[num_question_tokens])
-    # маскируем вопрос  с помощью -100, оставляем ответ. Модель разучивает связку вопрос-ответ, но для вычисления loss берется лишь ответ
+    # маскируем вопрос с помощью -100, оставляем ответ. Модель разучивает связку вопрос-ответ, но для вычисления loss берется лишь ответ
     for i in range(num_question_tokens): label[i] = -100
     
     return torch.tensor(pad_input_ids),torch.tensor(label),torch.tensor(pad_attention_mask)
     # # Модель получает:
     # inputs = {
-    #     'input_ids': pad_input_ids,      # Полный текст
-    #     'attention_mask': pad_attention_mask, # Куда смотреть 
-    #     'labels': label                  # Что предсказывать (только ответ)
+    #     'input_ids': pad_input_ids,      # Полный текст: соответствие токен - номер из словаря
+    #     'attention_mask': pad_attention_mask, # Куда смотреть: 0 у pad токенов, 1 у реальных
+    #     'labels': label                  # Что предсказывать (только ответ): -100 у тех токенов, которые не предсказываем, input_ids у остальных
     # }
 
     # # Forward pass:
@@ -78,12 +78,12 @@ class FamilyForgetDataset(Dataset):
         super(FamilyForgetDataset, self).__init__()
         self.tokenizer = tokenizer
         self.max_length = max_length
-        self.data = datasets.Dataset.from_dict(torch.load(data_path, weights_only = False))
+        self.data = datasets.Dataset.from_dict(torch.load(data_path, weights_only = False)) #hf dataset object creation
         self.data = add_dataset_index(self.data)
         self.qk = question_key
         self.ak = answer_key
         if isinstance(unlearn_data_id, int):
-            unlearn_data_id = np.asarray([unlearn_data_id]).astype(np.int32)
+            unlearn_data_id = np.asarray([unlearn_data_id]).astype(np.int32) # unlearn_data_id int -> np.array --> тип np.int32 для совместимости дальнейшей
         self.unlearn_data_id = unlearn_data_id
             
         self.model_configs = model_configs
@@ -92,7 +92,7 @@ class FamilyForgetDataset(Dataset):
         self.outputs_f_ref_logits = outputs_f_ref_logits
 
     def __len__(self):
-        # если бы world_size =2 был, один и тот же unlearn_data_id бы раздвоился, чтобы далее ... (дописать)
+        # если бы world_size = 2 был, один и тот же unlearn_data_id бы раздвоился, чтобы далее ... (дописать)
         return len(self.unlearn_data_id) * self.world_size
 
     def __getitem__(self, idx):
@@ -119,7 +119,8 @@ class FamilyForgetDataset(Dataset):
             pad_attention_mask_list.append(converted_data[2])
 
         if self.outputs_f_ref_logits is not None: # отдельная логика для npo
-            # squeeze схлопывает единичные размерности
+            # squeeze удаляет единичные размерности
+            # stack складывает несколько тензоров в один, добавляя в начале новую размерность
             return torch.stack(pad_input_ids_list).squeeze(),\ 
                     torch.stack(label_list).squeeze(),\
                     torch.stack(pad_attention_mask_list).squeeze(),\
@@ -147,7 +148,7 @@ class FamilyForgetDataset(Dataset):
 # Если unlearn_data_id = [267], то датасет будет возвращать только данные для факта #267
 # "Кто отец John?" → "Mike"
     
-def custom_data_collator(samples): # здесь батчи из одного и того же факта, вроде это улучшает забывание
+def custom_data_collator(samples): # здесь батчи из одного и того же факта, вроде это улучшает забывание (?)
     input_ids = [s[0] for s in samples] # просто объединяем, например, input_ids для всех примеров 1 и того же факта
     labels = [s[1] for s in samples]
     attention_mask = [s[2] for s in samples]
