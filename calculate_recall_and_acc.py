@@ -1,5 +1,3 @@
-# Скрипт лишь оценивает забывание моделей, не запускает отучение и т.д.
-
 import argparse
 import torch
 import numpy as np
