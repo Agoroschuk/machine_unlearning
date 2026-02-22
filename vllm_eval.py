@@ -41,7 +41,7 @@ Path(curr_save_dir).mkdir(parents=True, exist_ok=True) #parents=True значи�
 # Здесь происходит инференс чекпоинтов на разных стадиях забывания (получение biographies/relationships_correct.pt)
 for eval_dataset, eval_dataset_name in zip(eval_dataset_list, eval_dataset_name_list):
     with torch.no_grad():
-        # correct - булев массив, где, если я правильно понимаю, True = факт сохранился
+        # correct - булев массив, где True, если факт сохранился (в сгенерированном ответе есть правильный ответ)
         # responses - vllm объекты с подробностями о том, как на них работало забывание (ценно)
         correct, responses = eval_qa_vllm(
             eval_dataset, # факты из биографии (300) или взаимоотношения(400) в виде вопрос-ответ 
@@ -58,7 +58,7 @@ for eval_dataset, eval_dataset_name in zip(eval_dataset_list, eval_dataset_name_
         # ['request_id', 'prompt', 'prompt_token_ids', 'prompt_logprobs', 'outputs', 'finished', 'metrics', 'lora_request', 'encoder_prompt', 'encoder_prompt_token_ids']
         torch.save(responses, f"{curr_save_dir}/{eval_dataset_name}responses.pt")
         # если проводить параллель с calculate_recall_and_acc.py, то правильно считать таким способом только accuracy для biographies, для relationships логика сложнее
-        # и самое важное здесь = relationships_correct.pt = булев массив из того, что осталось после unlearning незабытым
+        # и самое важное здесь = relationships_correct.pt = булев массив из того, что не удалилось в результате unlearning
         # при сопоставлении его с minimal_set для забывания этого конкретного факта можем выяснить acc_relationships, recall_relationships
         acc = np.asarray(correct).astype(np.float32).mean()
         print(f"{eval_dataset}accuracy: {acc}")
