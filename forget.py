@@ -241,7 +241,7 @@ def main(cfg):
                 torch_dtype=torch.bfloat16, 
                 token=os.environ['HF_TOKEN'], 
                 trust_remote_code = True)
-            deepspeed_ref_model = trainer.e_prepare_deepspeed(ref_model)
+            deepspeed_ref_model = trainer.e_prepare_deepspeed(ref_model) # готовим замороженную для инференса версию модели (см. model.eval() в e_prepare_deepspeed)
             
             with torch.no_grad():
                 outputs_f_ref_logit_list = []

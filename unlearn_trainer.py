@@ -14,22 +14,33 @@ from transformers.integrations.deepspeed import deepspeed_init, deepspeed_load_c
 class CustomTrainer(Trainer): # должен подходить для обычного обучения и finetuning
     def compute_loss(self, model, inputs, return_outputs=False):
         # labels = те же токены, что input_ids, но со сдвигом на 1 позицию вперед
-        # (по input_ids предсказать labels грубо говоря)
+        # (по input_ids предсказать labels, грубо говоря)
         input_ids, labels, attention_mask = inputs
         # forward pass
-        outputs = model(input_ids,labels=labels, attention_mask=attention_mask)
+        outputs = model(input_ids, labels=labels, attention_mask=attention_mask)
         # logits = outputs.get("logits")
+        # logits.shape = [batch_size, sequence_length, num_labels]
         loss = outputs.loss
         # # compute custom loss (suppose one has 3 labels with different weights)
-        # loss_fct = nn.CrossEntropyLoss(weight=torch.tensor([1.0, 2.0, 3.0], device=model.device))
-        # loss = loss_fct(logits.view(-1, self.model.config.num_labels), labels.view(-1))
+        # loss_fct = nn.CrossEntropyLoss(weight=torch.tensor([1.0, 2.0, 3.0], device=model.device)) #для доп.взвешивания
+        # loss = loss_fct(logits.view(-1, self.model.config.num_labels), labels.view(-1)) # именно это под капотом compute_loss - сравнение logits и labels
+
+        # в коде выше torch.view(-1) значит, что перемножаются все размерности для создания одномерного вектора
+        # torch.view(-1, self.model.config.num_labels) значит, что схлопнутся (перемножатся) все размерности, кроме num_labels
+        # в результате на каждый label будет приходиться массив из логитов на каждый эл-т словаря
+        # Как можно видеть, для вычисления loss нужны только логиты предсказаний на каждый токен словаря и правильная метка
+        # => пересмотреть, что под капотом NPO метода
         return (loss, outputs) if return_outputs else loss
     
     def prediction_step(self, model, inputs, prediction_loss_only: bool, ignore_keys=None):
+        """
+        Функция нужна для отделения инференса (no_grad) от обучения
+        """
         input_ids, labels, attention_mask = inputs
         # forward pass
-        with torch.no_grad(): # экономия памяти, не создается граф вычислений, также на инференсе делают
-            outputs = model(input_ids,labels=labels, attention_mask=attention_mask)
+        with torch.no_grad(): # на инференсе не создается граф вычислений, также экономится память
+        # вроде сам hf trainer перед вызовом prediction_step вызывает model.eval(), поэтому dropout, batchnorm также выключены
+            outputs = model(input_ids, labels=labels, attention_mask=attention_mask)
             logits = outputs.logits
             loss = outputs.loss
         return (loss, logits, labels)
@@ -97,7 +108,7 @@ class CustomFamilyTrainerForgetting(Trainer):
     def prediction_step(self, model, inputs, prediction_loss_only: bool, ignore_keys=None):
         input_ids, labels, attention_mask = inputs
         # forward pass
-        with torch.no_grad(): # не строится граф вычислений, ускорение
+        with torch.no_grad(): # инференс, не строится граф вычислений
             outputs = model(input_ids, labels=labels, attention_mask=attention_mask)
             logits = outputs.logits
             loss = outputs.loss
@@ -133,7 +144,7 @@ class CustomFamilyTrainerForgetting(Trainer):
             else:
                 print(f'[ReliableSave] Missing files after attempt {attempt}:{missing_files}')
                 try:
-                    # вспомогат.процесс для помощи FUSE
+                    # вспомогат.процесс для помощи FUSE  --> похоже на ненужный код
                     shutil.copy2(os.path.join(curr_save_dir, 'config.json'), curr_save_dir)
                 except Exception:
                     pass
@@ -189,9 +200,7 @@ class CustomFamilyTrainerForgetting(Trainer):
         if model is not None:
             if hasattr(model, "config"):
                 hidden_size = (
-                    max(model.config.hidden_sizes)
-                    if getattr(model.config, "hidden_sizes", None)
-                    else getattr(model.config, "hidden_size", None)
+                    max(model.config.hidden_sizes) if getattr(model.config, "hidden_sizes", None) else getattr(model.config, "hidden_size", None)
                 )
                 if hidden_size is not None and config_kwargs["zero_optimization"]["stage"] == 3:
                     # Note that `stage3_prefetch_bucket_size` can produce DeepSpeed messages like: `Invalidate trace cache @ step 0: expected module 1, but got module 0`
@@ -208,13 +217,15 @@ class CustomFamilyTrainerForgetting(Trainer):
         # Otherwise, we assume the reference model fits in memory and is initialized on each device with ZeRO disabled (stage 0)
         if config_kwargs["zero_optimization"]["stage"] != 3:
             config_kwargs["zero_optimization"]["stage"] = 0
-        config_kwargs["optimizer"] = {"type": None}
+        config_kwargs["optimizer"] = {"type": None} #отключение оптимизатора, т.к. deepspeed вроде только на этапе инференса применяется
         model, *_ = deepspeed.initialize(model=model, config=config_kwargs)
-        # отключение dropout, batchnorm для инференса
-        model.eval()
+        model.eval() # отключение dropout, batchnorm для инференса
         #set the gradients to false for every parameter
         # веса модели при backward() не обновляются, но градиенты сохраняются
         for param in model.parameters():
             param.requires_grad = False
         
-        return model # та же модель, но обернутая в DeepSpeed engine и настроенная для инференса
+        return model # та же модель, но обернутая в DeepSpeed engine и настроенная для эффективного инференса
+
+        # На инференсе одновременно model.eval() и with torch.no_grad(), но логику делят по компонентам, потому в e_prepare_deepspeed только model.eval(),
+        # а with torch.no_grad() в forget.py для получения логитов в npo

@@ -4,7 +4,7 @@ import gc
 import torch
 import numpy as np
 # pip show vllm (for info), https://github.com/vllm-project/vllm
-from vllm import LLM  # vllm - высокопроизводительная библиотека для инференса больших языковых моделей
+from vllm import LLM  # vllm - высокопроизводительная библиотека для инференса больших языковых моделей, предположительно, быстрее, чем hugging face
 from vllm.distributed.parallel_state import destroy_model_parallel
 from pathlib import Path
 from datasets import Dataset
@@ -36,7 +36,7 @@ if args.clean_cache == "true":
     import shutil # (shell utilities, python модуль для высокоуровневых файловых операций)
     shutil.rmtree(curr_save_dir) # удаление всей папки curr_save_dir и всего содержимого
 
-Path(curr_save_dir).mkdir(parents=True, exist_ok=True)
+Path(curr_save_dir).mkdir(parents=True, exist_ok=True) #parents=True значит, что если промежуточные папки не созданы, они создадутся автоматически
 
 # Здесь происходит инференс чекпоинтов на разных стадиях забывания (получение biographies/relationships_correct.pt)
 for eval_dataset, eval_dataset_name in zip(eval_dataset_list, eval_dataset_name_list):
@@ -44,8 +44,8 @@ for eval_dataset, eval_dataset_name in zip(eval_dataset_list, eval_dataset_name_
         # correct - булев массив, где, если я правильно понимаю, True = факт сохранился
         # responses - vllm объекты с подробностями о том, как на них работало забывание (ценно)
         correct, responses = eval_qa_vllm(
-            eval_dataset, # факты из биографии  (300) или взаимоотношения(400) в виде вопрос-ответ 
-            model_eval, # готовая модель из чекпоинта для генерации текста
+            eval_dataset, # факты из биографии (300) или взаимоотношения(400) в виде вопрос-ответ 
+            model_eval, # готовая модель из чекпоинта для генерации текста, адаптированная к быстрой генерации текста с пом. vllm библиотеки 
             qk="question4", 
             ak="answer4", 
             question_start_tag=model_cfg["question_start_tag"], 

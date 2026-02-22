@@ -1,3 +1,5 @@
+# Передача параметров через командную строку — гибкость (можно менять эксперименты без правки кода)
+
 #!/bin/bash  # нужно, чтобы выполнился script.sh
 
 # sudo apt-get update && sudo apt-get install -y trash-cli # для удаления минуя корзину
@@ -25,19 +27,19 @@ mkdir -p $save_path  # папка для сохранения результат
 
 # запуск скрипта забывания на 2 gpu процессах
 # torchrun - launcher для распределенного обучения PyTorch
-# -- отделяются опции
+# -- отделяются длинные опции, (- для коротких, пр. -la)
 # Переопределяет "forget" на "forget_family.yaml"
 CUDA_VISIBLE_DEVICES=${devices} torchrun --nproc_per_node=1 --master_port=$master_port forget.py --config-name=forget_family.yaml model_family=${model} unlearn_data_id=${unlearn_data_id} forget_loss=${forget_loss} model_path=${model_path}; 
 
 # для каждой поддиректории с чекпоинтами (для каждого чекпоинта посчитать метрики)
-# Тут уже должны рассчитываться метрики => проблема д.б. с сохранением checkpoint в forget.py
+# /*/ <=> поиск в save_path (/) директорий (/) с любым названием (*)
 for cur_save_dir in ${save_path}/*/; do
     # оценка на 1 из 4 моделей с пом. vllm_eval.py
     CUDA_VISIBLE_DEVICES=${devices} python vllm_eval.py --curr_save_dir ${cur_save_dir} --model_family $model --clean_cache false; 
     
-    # Маппинг имен моделей
+    # Маппинг имен моделей (короткая версия: полная версия с HF), -A создает ассоциативный массив model_to_modelid, далее он заполняется по принципу ключ: значение, 
     declare -A model_to_modelid=( ["llama2-7b"]="meta-llama/Llama-2-7b" ["llama3-8b"]="meta-llama/Meta-Llama-3-8B" ["gpt2-xl"]="openai-community/gpt2-xl" ["phi"]="microsoft/phi-1_5")
-    model_id="${model_to_modelid[$model]}"
+    model_id="${model_to_modelid[$model]}" # доступ к эл-ту ассоц.массива
     
     # Оценка способностей модели (lm-evaluation-harness) - вроде пока вообще не работает
     # tasks piqa,race,mmlu  - Тесты на здравый смысл, чтение, знания
