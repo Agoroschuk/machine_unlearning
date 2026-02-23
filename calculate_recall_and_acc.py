@@ -56,11 +56,11 @@ if args.input_dir is None:
 # где True, если модель после забывания смогла сгенерировать верный ответ
 rel_ind = np.asarray(torch.load(f"{args.input_dir}/relationships_correct.pt")).astype(np.float32)
 # обратный массив из 0 и 1 размером 400
-# Если в rel_ind 1, значит, факт не забылся, значит unlearn_ind будет 0. В unlearn_ind 1 у забытых фактов
+# Если в rel_ind 1, значит, факт сохранился, значит unlearn_ind будет 0. В unlearn_ind 1 у забытых фактов
 unlearn_ind = 1 - rel_ind
 bio_ind = torch.load(f"{args.input_dir}/biographies_correct.pt")
 
-# в каждом массиве набор метрик от разных minimal_set для забывания shuffled_unlearn_data_id
+# в каждом массиве набор метрик от разных minimal_set для оценки забывания shuffled_unlearn_data_id
 # (так как min_set не единственно, максимум = 17 таких множеств согласно статье) 
 precision_list, recall_list, accuracy_list, minimal_unlearn_list = get_valid_unlearn_general(
     shuffled_unlearn_data_id, 
@@ -79,7 +79,7 @@ argmax = np.asarray(recall_list).argmax()
 # accuracy для этого индекса
 acc_rel = accuracy_list[argmax]
 # просто среднее число 1 в результате забывания на фактах биографии
-acc_bio = np.asarray(bio_ind).mean()
+acc_bio = np.asarray(bio_ind).mean() # по идее факты биографии нетронуты дб.? 
 
 num_rel = len(rel_ind) # 400
 num_bio = len(bio_ind) # 300

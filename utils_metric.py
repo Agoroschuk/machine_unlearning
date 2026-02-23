@@ -10,7 +10,7 @@ def check_if_in_deductive_closure(unlearn_data_id, minimal_set, edge_list, edge_
     """
     Функция проверяет, можно ли вывести целевой факт из минимального мн-ва minimal set
     """
-    # создается мн-во из id фактов в minimal_set + id выведенных искуственно с пом. dc фактов
+    # создается мн-во из id фактов в minimal_set + id выведенных искуственно с пом. dc фактов (range(start, stop))
     cur_minimal_set = set(list(deepcopy(minimal_set)) + list(range(len(edge_list), len(dc_edge_list))))
     
     new_added_id_list = []
@@ -54,7 +54,7 @@ def check_if_in_deductive_closure(unlearn_data_id, minimal_set, edge_list, edge_
     
 def get_minimal_nec_unlearn_and_not_included_unlearn(unlearn_data_id, edge_list, edge_type_list, dc_edge_list, dc_edge_type_list, rule_list, seed=0):
     """
-    Создает минимальное множество фактов для забывания целевого факта. То есть ищет факты, без которых
+    Создает минимальное множество фактов для глубокого забывания целевого факта. То есть ищет факты, без которых
     целевой факт не вывести. Множество минимально, т.к. не содержит все вообще факты для вывода целевого,
     а содержит их случайный минимальный набор. Для поиска случ. мин. набора в коде прим-ся random.sample 
     """
@@ -72,7 +72,7 @@ def get_minimal_nec_unlearn_and_not_included_unlearn(unlearn_data_id, edge_list,
         cur_unlearn_data_id = random.sample(sorted(minimal_set_unverified), 1)[0]
         # удаляем id этого элемента, minimal_set_unverified становится пустым в первый проход
         minimal_set_unverified.remove(cur_unlearn_data_id)
-        # и добавляем id рассматриваемый факта в minimal_set
+        # и добавляем id рассматриваемого факта в minimal_set
         minimal_set.add(cur_unlearn_data_id)
 
         # получаем tuple, отражающий связь для рассматриваемого id (69, 67)
@@ -132,11 +132,11 @@ def get_minimal_nec_unlearn_and_not_included_unlearn(unlearn_data_id, edge_list,
                 minimal_set.add(data_id)
     return minimal_set
 
-# unlearn_ind = массив из 0 и 1 размером 400, где 1 = факт успешно забыт после unlearning
+# unlearn_ind = массив из 0 и 1 размером 400 (т.к. строится на основе rel_ind, а relationships 400), где 1 = факт успешно забыт после unlearning
 def get_prec_rec_acc(minimal_set, unlearn_ind):
     # создаем np.array из 0 размером 400
     minimal_set_ind = np.zeros(len(unlearn_ind))
-    # 1 ставим у элементов, номера которых есть в minimal_set, т.е. которые должны быть забаты
+    # 1 ставим у элементов, номера которых есть в minimal_set, т.е. которые должны быть забыты
     minimal_set_ind[list(minimal_set)] = 1
     prec = (minimal_set_ind * unlearn_ind).sum() / max(unlearn_ind.sum(), 1e-8)
     # minimal_set_ind * unlearn_ind показывает, сколько забыто фактов из мин.мн-ва для забывания
@@ -148,8 +148,7 @@ def get_prec_rec_acc(minimal_set, unlearn_ind):
     # Чем больше лишнего забыто, тем ниже accuracy
     acc = 1 - (unlearn_ind * (1 - minimal_set_ind)).sum() / (len(unlearn_ind) - len(minimal_set))
     return prec, rec, acc
-    
-# python calculate_recall_and_acc.py --unlearn_data_id 3 --input_dir example_for_evaluation    
+      
 def get_valid_unlearn_general(unlearn_data_id, edge_list, edge_type_list, dc_edge_list, dc_edge_type_list, unlearn_ind, rule_list, num_seed=10, 
                               save_dir="synthetic_data/unlearn_minimal_set" # здесь почти 400 .pt отдельных файлов
                               ):
@@ -173,7 +172,7 @@ def get_valid_unlearn_general(unlearn_data_id, edge_list, edge_type_list, dc_edg
     recall_list = []
     acc_list = []
     for minimal_set in minimal_unlearn_set:
-        # unlearn_ind = np.array из 0 и 1, где 0 значит, что факт не забыт
+        # unlearn_ind = np.array из 0 и 1, где 1 значит, что факт забыт
         prec, rec, acc = get_prec_rec_acc(minimal_set, unlearn_ind)
         precision_list.append(prec)
         recall_list.append(rec)
