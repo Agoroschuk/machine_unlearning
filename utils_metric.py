@@ -205,10 +205,13 @@ def get_deductive_closure(edge_list, edge_type_list, rule_list, person_list):
         new_edge_type_list = []
         for rule in rule_list:
             # обходим все 48 rule и выходим, все факты вывели т.о. (факты из имеющихся выводятся в get_dc_edges_list)
+            # То есть может стать не 400 фактов relationships, а больше, если логически можно вывести из 400 дополнительные факты
             _new_edge_list, _new_edge_type_list = rule.get_dc_edges_list(dc_edge_list, dc_edge_type_list, person_list)
             dc_edge_list = dc_edge_list + _new_edge_list
             dc_edge_type_list = dc_edge_type_list + _new_edge_type_list
             
+            # new_edge_list вроде вводится для доп проверки. Если при обходе последнего правила в цикле for rule in rule_list выведены новые факты,
+            # т.е. len(new_edge_list) > 0 при проверке окажется, то обход правил начнется заново. Иначе выйдем из while
             new_edge_list = new_edge_list + _new_edge_list
             new_edge_type_list = new_edge_type_list + _new_edge_type_list
             

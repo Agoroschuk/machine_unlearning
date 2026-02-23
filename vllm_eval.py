@@ -39,9 +39,10 @@ if args.clean_cache == "true":
 Path(curr_save_dir).mkdir(parents=True, exist_ok=True) #parents=True значит, что если промежуточные папки не созданы, они создадутся автоматически
 
 # Здесь происходит инференс чекпоинтов на разных стадиях забывания (получение biographies/relationships_correct.pt)
+# Мы смотрим, как сохранились relationships и biographies после забаывания конкретного факта из relationships
 for eval_dataset, eval_dataset_name in zip(eval_dataset_list, eval_dataset_name_list):
     with torch.no_grad():
-        # correct - булев массив, где True, если факт сохранился (в сгенерированном ответе есть правильный ответ)
+        # correct - булев массив размером 400 (relationships) и 300(biographies), где True, если факт сохранился (в сгенерированном ответе есть правильный ответ)
         # responses - vllm объекты с подробностями о том, как на них работало забывание (ценно)
         correct, responses = eval_qa_vllm(
             eval_dataset, # факты из биографии (300) или взаимоотношения(400) в виде вопрос-ответ 

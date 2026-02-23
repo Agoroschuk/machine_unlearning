@@ -19,20 +19,20 @@ from utils_metric import (
 
 parser = argparse.ArgumentParser(description='calculate the recall and accuracy')
 parser.add_argument('--unlearn_data_id', type=int, default=None, help="id of the fact to unlearn")
-parser.add_argument('--input_dir', type=str, default=None, help="directory that saves the rettained knowledge base")
+parser.add_argument('--input_dir', type=str, default=None, help="directory that saves the retained knowledge base")
 # в объект args кладется unlearn_data_id и input_dir
 args = parser.parse_args()
 
-# 400 relationships
+# 400 relationships 
 # (69, 67), father, Sloane Lee, <utils_data_building.Person object at 0x7e13e265ea80>: 'age', 'birthplace', 'children', 'father', 'gender', 'generation', 'husband', 'if_build', 'job', 'mother', 'name', 'wife'
+# читать так: 67 = отец для 69, справа налево то есть
 (edge_list, edge_type_list, fixed_names, person_list) = torch.load("synthetic_data/family-200-graph.pt")
 # <class 'utils_data_building.Rule'>:  [(0, 'wife', 1)], (1, 'husband', 0)]
 rule_list = torch.load("synthetic_data/family_rule.pt")
-# вывод на основании правил и имеющихся фактов всех возможных следствий для полноты картины
+# вывод на основании правил и имеющихся 400 фактов всех возможных следствий (доп.фактов помимо 400)
 dc_edge_list, dc_edge_type_list = get_deductive_closure(edge_list, edge_type_list, rule_list, person_list)
 # a random subset of size 55 from the facts in family relationship to evaluate the deep unlearning 
 shuffled_edge_id_list = torch.load("synthetic_data/subsample.pt")
-# 267  - это номер грани? Тогда где указание на то, какой родственной связи соответствует?
 # args - обработанные аргументы командной строки
 shuffled_unlearn_data_id = shuffled_edge_id_list[args.unlearn_data_id]
 
@@ -40,7 +40,7 @@ shuffled_unlearn_data_id = shuffled_edge_id_list[args.unlearn_data_id]
 if args.input_dir is None:
     print("pre-compute the minimal deep unlearning set only")
     precision_list, recall_list, accuracy_list, minimal_unlearn_list = get_valid_unlearn_general(
-        shuffled_unlearn_data_id, # 267 (номер факта из relationships) ОН ОДИН!!!
+        shuffled_unlearn_data_id, # 267 (номер факта из relationships)
         edge_list, # (69, 67), ... (здесь все грани из поданных синтетических данных family-200-graph.pt)
         edge_type_list, # father, ...(здесь все названия граней из поданных синтетических данных family-200-graph.pt)
         dc_edge_list, # здесь к edge_list добавлены все возможные следствия на основании rules
@@ -52,7 +52,8 @@ if args.input_dir is None:
 
 # Если указан input_dir, попадаем сюда
 # В rel_ind 1 у сохранившихся после unlearning фактов, массив из 1 и 0 размером 400
-# relationships_correct.pt и biographies_correct.pt получены в vllm_eval.py
+# relationships_correct.pt и biographies_correct.pt получены в vllm_eval.py, это булевы массивы размером 400 и 300, соответственно, 
+# где True, если модель после забывания смогла сгенерировать верный ответ
 rel_ind = np.asarray(torch.load(f"{args.input_dir}/relationships_correct.pt")).astype(np.float32)
 # обратный массив из 0 и 1 размером 400
 # Если в rel_ind 1, значит, факт не забылся, значит unlearn_ind будет 0. В unlearn_ind 1 у забытых фактов
