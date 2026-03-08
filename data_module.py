@@ -121,7 +121,7 @@ class FamilyForgetDataset(Dataset):
         if self.outputs_f_ref_logits is not None: # отдельная логика для npo
             # squeeze удаляет единичные размерности
             # stack складывает несколько тензоров в один, добавляя в начале новую размерность
-            return torch.stack(pad_input_ids_list).squeeze(),\ 
+            return torch.stack(pad_input_ids_list).squeeze(),\
                     torch.stack(label_list).squeeze(),\
                     torch.stack(pad_attention_mask_list).squeeze(),\
                     self.outputs_f_ref_logits[idx],\
