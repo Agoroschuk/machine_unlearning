@@ -38,7 +38,7 @@ for cur_save_dir in ${save_path}/*/; do
     CUDA_VISIBLE_DEVICES=${devices} python vllm_eval.py --curr_save_dir ${cur_save_dir} --model_family $model --clean_cache false; 
     
     # Маппинг имен моделей (короткая версия: полная версия с HF), -A создает ассоциативный массив model_to_modelid, далее он заполняется по принципу ключ: значение, 
-    declare -A model_to_modelid=( ["llama2-7b"]="meta-llama/Llama-2-7b" ["llama3-8b"]="meta-llama/Meta-Llama-3-8B" ["gpt2-xl"]="openai-community/gpt2-xl" ["phi"]="microsoft/phi-1_5")
+    declare -A model_to_modelid=( ["llama2-7b"]="meta-llama/Llama-2-7b" ["llama3-8b"]="meta-llama/Meta-Llama-3-8B" ["gpt2_xl"]="openai-community/gpt2-xl" ["phi"]="microsoft/phi-1_5")
     model_id="${model_to_modelid[$model]}" # доступ к эл-ту ассоц.массива
     
     # Оценка способностей модели (lm-evaluation-harness) - вроде пока вообще не работает
