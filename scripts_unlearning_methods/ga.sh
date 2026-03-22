@@ -45,7 +45,7 @@ for cur_save_dir in ${save_path}/*/; do
     # tasks piqa,race,mmlu  - Тесты на здравый смысл, чтение, знания
     CUDA_VISIBLE_DEVICES=${devices} lm_eval --model vllm \
         --model_args pretrained=${cur_save_dir},tokenizer=${model_id},tensor_parallel_size=1,dtype=auto,gpu_memory_utilization=0.8,data_parallel_size=1,max_num_seqs=256 \
-        --tasks piqa,race,mmlu \
+        --tasks race,mmlu \
         --batch_size auto \
         --output_path ${cur_save_dir}
     # Очистка весов моделей (сохраняем только метрики и логи)
