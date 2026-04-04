@@ -10,7 +10,7 @@ base_output_dir = "/content/drive/MyDrive/Unlearning/miscellaneous/results/ga/gp
 Path(base_output_dir).mkdir(parents=True, exist_ok=True)
 
 # Обходим все unlearn_data_id от 0 до 54
-for unlearn_data_id in range(10):
+for unlearn_data_id in range(9, 27):
     # Формируем путь к входной директории
     input_dir = f"{base_input_dir}/{unlearn_data_id}"
     

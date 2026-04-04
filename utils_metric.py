@@ -154,7 +154,7 @@ def get_valid_unlearn_general(unlearn_data_id, edge_list, edge_type_list, dc_edg
                               ):
     # если для данного unlearn_data_id уже есть minimal_unlearn_set в save_dir, загружаем
     if os.path.exists(f"{save_dir}/{unlearn_data_id}.pt"):
-        minimal_unlearn_set = torch.load(f"{save_dir}/{unlearn_data_id}.pt")
+        minimal_unlearn_set = torch.load(f"{save_dir}/{unlearn_data_id}.pt", weights_only=False)
     # иначе получаем мин.мн-во для забывания требуемого факта
     else:
         minimal_unlearn_list = []
