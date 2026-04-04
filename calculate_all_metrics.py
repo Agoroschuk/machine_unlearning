@@ -3,9 +3,8 @@ import subprocess
 import shutil
 from pathlib import Path
 
-# Базовые пути
-base_input_dir = "/content/drive/MyDrive/Unlearning/models/unlearning_checkpoint/ga/gpt2_xl"
-base_output_dir = "/content/drive/MyDrive/Unlearning/models/results/ga/gpt2_xl"
+base_input_dir = "/content/drive/MyDrive/Unlearning/miscellaneous/unlearning_checkpoint/ga/gpt2_xl"
+base_output_dir = "/content/drive/MyDrive/Unlearning/miscellaneous/results/ga/gpt2_xl"
 
 # Создаем базовую выходную директорию
 Path(base_output_dir).mkdir(parents=True, exist_ok=True)

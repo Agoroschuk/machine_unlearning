@@ -15,13 +15,13 @@ devices="0"
 model=$1 # 1-й аргумент команд. строки (= gpt2-xl)
 unlearn_data_id=$2 # 2-й аргумент команд. строки (= 1)
 # model_path=ft_model_checkpoint/ft_${model}
-model_path=/content/drive/MyDrive/Unlearning/models/ft_model_checkpoint/ft_${model} # путь к предобученной модели
+model_path=/content/drive/MyDrive/Unlearning/miscellaneous/ft_model_checkpoint/ft_${model} # путь к предобученной модели
 forget_loss=ga
 
 # Забывание запускается отдельно для каждого unlearn_data_id
 # save_path=unlearning_checkpoint/ga/${model}/${unlearn_data_id}
-save_path=/content/drive/MyDrive/Unlearning/models/unlearning_checkpoint/ga/${model}/${unlearn_data_id}
-# save_path_full_checkpoints=/content/drive/MyDrive/Unlearning/models/unlearning_checkpoint/full_checkpoints/ga/${model}/${unlearn_data_id}
+save_path=/content/drive/MyDrive/Unlearning/miscellaneous/unlearning_checkpoint/ga/${model}/${unlearn_data_id}
+# save_path_full_checkpoints=/content/drive/MyDrive/Unlearning/miscellaneous/unlearning_checkpoint/full_checkpoints/ga/${model}/${unlearn_data_id}
 # save_path=save_path_full_checkpoints
 mkdir -p $save_path  # папка для сохранения результатов д.б. создана в google drive (parents директории создаются в случае необходимости)
 
@@ -41,7 +41,7 @@ for cur_save_dir in ${save_path}/*/; do
     declare -A model_to_modelid=( ["llama2-7b"]="meta-llama/Llama-2-7b" ["llama3-8b"]="meta-llama/Meta-Llama-3-8B" ["gpt2_xl"]="openai-community/gpt2-xl" ["phi"]="microsoft/phi-1_5")
     model_id="${model_to_modelid[$model]}" # доступ к эл-ту ассоц.массива
     
-    # Оценка способностей модели (lm-evaluation-harness) - вроде пока вообще не работает
+    # Оценка способностей модели (lm-evaluation-harness)
     # tasks piqa,race,mmlu  - Тесты на здравый смысл, чтение, знания
     CUDA_VISIBLE_DEVICES=${devices} lm_eval --model vllm \
         --model_args pretrained=${cur_save_dir},tokenizer=${model_id},tensor_parallel_size=1,dtype=auto,gpu_memory_utilization=0.8,data_parallel_size=1,max_num_seqs=256 \

@@ -19,7 +19,7 @@ parser.add_argument('--clean_cache', type=str, default="false")
 parser.add_argument('--config_path', type=str, default="config/") # т.к. config_path из .sh файла не передан, значение его берется из default
 args = parser.parse_args()
 
-# curr_save_dir = конкретный чекпоинт в save_path=/content/drive/MyDrive/Unlearning/models/unlearning_checkpoint/ga/${model}/${unlearn_data_id}
+# curr_save_dir = конкретный чекпоинт в save_path=/content/drive/MyDrive/Unlearning/miscellaneous/unlearning_checkpoint/ga/${model}/${unlearn_data_id}
 curr_save_dir = args.curr_save_dir
 # model_cfg - словарь с параметрами модели из model_config.yaml
 model_cfg = get_model_identifiers_from_yaml(args.model_family, config_path=args.config_path)
