@@ -19,13 +19,14 @@ def check_if_in_deductive_closure(unlearn_data_id, minimal_set, edge_list, edge_
     while len(new_added_id_list) > 0 or t == 0:
         new_added_id_list = []
         t = t + 1
-        # Перебор фактов из cur_minimal_set
+        # Перебор id фактов из cur_minimal_set
         for cur_unlearn_data_id in cur_minimal_set:
             unlearn_edge = dc_edge_list[cur_unlearn_data_id] # получаем из dc_edge_list номер грани в формате (10, 20)
             unlearn_edge_type = dc_edge_type_list[cur_unlearn_data_id] # получаем тип грани в формате father
             # для каждого правила проверяем, является ли father следствием в правиле, если да, складываем в rule_set_related
             rule_set_related = [rule for rule in rule_list if rule.right_tuple[1] == unlearn_edge_type]  
             if_deducted = False
+            # по следствию каждого правила ищем причины
             for rule in rule_set_related:
                 if if_deducted:
                     break
@@ -39,30 +40,32 @@ def check_if_in_deductive_closure(unlearn_data_id, minimal_set, edge_list, edge_
                     for up_edge in up_edges:
                         # ind = get_edge_id((10, 20), dc_edge_list)
                         ind = get_edge_id((up_edge[0], up_edge[2]), dc_edge_list)
-                        # Если этот факт есть в cur_minimal_set, не попадем в if ниже и
+                        # Если этот факт есть в cur_minimal_set, (наверное это значит, что его можно вывести и он не необходим в cur_minimal_set), не попадем в if ниже и
                         # прекращаем обход текущей цепочки, напр., [(10, father, 20), (20, brother, 30)]
                         if ind in cur_minimal_set:
                             up_edges_if_deducted = False
                             break
                     # если ни одного факта из цепочки нет в cur_minimal_set, значит, их можно вывести из других, (а почему если нет в cur_minimal_set, значит что можно вывести из других?) попадаем сюда
+                    # Если нашли id факта, которого еще не было в minimal_set, то по нему можно вывести cur_unlearn_data_id
+                    # Кажется, тут возможен случай, когда unlearn_data_id будет выброшен как один из data_id
                     if up_edges_if_deducted:
                         if_deducted = True
-                        # и добавляем в пустой специальный список, затем по break выходим из цикла обхода цепочек причин
-                        # Если факт можно вывести из других в minimal_set, он удаляется из minimal_set
+                        # и добавляем его в пустой специальный список, затем по break выходим из цикла обхода цепочек причин, поднимаемся на for rule in rule_set_related: и там снова break
+                        # итак, new_added_id_list содержит предпосылки правил, по которым можно вывести разные cur_unlearn_data_id из cur_minimal_set, сконструированный под конкретный unlearn_data_id
                         new_added_id_list.append(cur_unlearn_data_id)
                         break
-        # Если факт можно вывести из других в minimal_set, он удаляется из minimal_set
+
         # Если факт добавился к множеству для забывания и был найден в new_added_id_list, он удаляется из cur_minimal_set
+        # потому что в new_added_id_list попадают только те факты cur_unlearn_data_id, которые удалось вывести по правилам, но их еще не было в cur_minimal_set => они избыточны, раз выводимы
         for new_added_id in new_added_id_list:
             cur_minimal_set.remove(new_added_id)
     
-    # если мы покинули while
-    # Проверяем, можно ли все еще вывести целевой факт unlearn_data_id
+    # если мы покинули while, значит, удалили все избыточные (выводимые из cur_minimal_set) факты
+    # Кажется, этот участок нужен на случай, если в результате перебора data_id в первичном minimal_set был удален unlearn_data_id, чтобы вернуть его обратно
     if unlearn_data_id in cur_minimal_set:
-        # если целевой факт остался в финал.мн-ве (его нельзя вывести на основании других)
         return False
     else:
-        # если целевого факта нет в фин. мин.мн-ве (его можно вывести)
+        # если целевого факта нет в финальном cur_minimal_set и он удален перебором data_id в get_minimal_nec_unlearn_and_not_included_unlearn, вернуть его (см get_minimal_nec_unlearn_and_not_included_unlearn)
         return True              
                 
     
@@ -142,7 +145,8 @@ def get_minimal_nec_unlearn_and_not_included_unlearn(unlearn_data_id, edge_list,
         t = t+1
         # получение случайной перестановки эл-тов в minimal_set
         shuffled_minimal_set = np.asarray(list(minimal_set))[np.random.permutation(len(minimal_set))]
-        # Далее выясняем, можно ли целевой факт unlearn_data_id вывести без data_id. Если можно, то удаляем data_id
+        # Далее выясняем, можно ли целевой факт unlearn_data_id вывести без data_id. Если можно, то удаляем data_id (?? это мб не совсем верная трактовка происходящего)
+        # среди shuffled_minimal_set есть и unlearn_data_id
         for data_id in shuffled_minimal_set:
             # временное удаление факта из minimal_set
             minimal_set.remove(data_id)
@@ -151,7 +155,7 @@ def get_minimal_nec_unlearn_and_not_included_unlearn(unlearn_data_id, edge_list,
                 # значит, data_id избыточен и из minimal_set его можно удалить навсегда
                 C.append(data_id)
             else:
-                # если мы здесь, data_id не избыточен и остается в minimal_set
+                # если мы здесь, data_id не избыточен и остается в minimal_set (ВРОДЕ ТУТ ВЕРНЕТСЯ УДАЛЕННЫЙ UNLEARN_DATA_ID)
                 minimal_set.add(data_id)
     # таким образом, minimal_set здесь точно не станет больше, но может уменьшиться
     return minimal_set
