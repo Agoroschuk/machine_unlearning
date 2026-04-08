@@ -8,42 +8,56 @@ from copy import deepcopy
 # minimal_set включает сам unlearn_data_id
 def check_if_in_deductive_closure(unlearn_data_id, minimal_set, edge_list, edge_type_list, dc_edge_list, dc_edge_type_list, rule_list):
     """
-    Функция проверяет, можно ли вывести целевой факт из минимального мн-ва minimal set
+    Функция проверяет, можно ли вывести целевой факт из минимального мн-ва minimal_set после удаления оттуда data_id. 
+    Передаваемое minimal_set уже построено по конкретному unlearn_data_id для забывания
     """
-    # создается мн-во из id фактов в minimal_set + id выведенных искуственно с пом. dc фактов (range(start, stop))
+    # создается мн-во из id фактов в minimal_set + id выведенных искуственно с пом. get_dc_edges_list фактов (range(start, stop)), напр. range(400, 410)
     cur_minimal_set = set(list(deepcopy(minimal_set)) + list(range(len(edge_list), len(dc_edge_list))))
     
     new_added_id_list = []
-    t = 0
+    t = 0 # чтобы 1-й раз зайти в цикл 
     while len(new_added_id_list) > 0 or t == 0:
         new_added_id_list = []
         t = t + 1
-        # Перебор фактов из cur_minimal_set. 
+        # Перебор фактов из cur_minimal_set
         for cur_unlearn_data_id in cur_minimal_set:
-            unlearn_edge = dc_edge_list[cur_unlearn_data_id]
-            unlearn_edge_type = dc_edge_type_list[cur_unlearn_data_id]
-            rule_set_related = [rule for rule in rule_list if rule.right_tuple[1] == unlearn_edge_type]
+            unlearn_edge = dc_edge_list[cur_unlearn_data_id] # получаем из dc_edge_list номер грани в формате (10, 20)
+            unlearn_edge_type = dc_edge_type_list[cur_unlearn_data_id] # получаем тип грани в формате father
+            # для каждого правила проверяем, является ли father следствием в правиле, если да, складываем в rule_set_related
+            rule_set_related = [rule for rule in rule_list if rule.right_tuple[1] == unlearn_edge_type]  
             if_deducted = False
             for rule in rule_set_related:
                 if if_deducted:
                     break
-                # на основании каких причин выводится текущее правило  (причина м.б. и не одна)
+                # на основании каких цепочек причин выводится текущий факт, допустим (10, 'uncle', 30), выясняем с помощью правил
+                # (может быть несколько цепочек с причинами, как здесь [[(10, father, 20), (20, brother, 30)], [(10, 'brother', 15), (15, 'father', 30)]] ->)
                 up_edges_list = rule.get_up_edges_list(dc_edge_list, dc_edge_type_list, unlearn_edge, unlearn_edge_type)
+                # for [(10, father, 20), (20, brother, 30)] in [[(10, father, 20), (20, brother, 30)], [(10, 'brother', 15), (15, 'father', 30)]]:
                 for up_edges in up_edges_list:
                     up_edges_if_deducted = True
+                    # for (10, father, 20) in [(10, father, 20), (20, brother, 30)]:
                     for up_edge in up_edges:
+                        # ind = get_edge_id((10, 20), dc_edge_list)
                         ind = get_edge_id((up_edge[0], up_edge[2]), dc_edge_list)
+                        # Если этот факт есть в cur_minimal_set, не попадем в if ниже и
+                        # прекращаем обход текущей цепочки, напр., [(10, father, 20), (20, brother, 30)]
                         if ind in cur_minimal_set:
                             up_edges_if_deducted = False
                             break
+                    # если ни одного факта из цепочки нет в cur_minimal_set, значит, их можно вывести из других, (а почему если нет в cur_minimal_set, значит что можно вывести из других?) попадаем сюда
                     if up_edges_if_deducted:
                         if_deducted = True
+                        # и добавляем в пустой специальный список, затем по break выходим из цикла обхода цепочек причин
                         # Если факт можно вывести из других в minimal_set, он удаляется из minimal_set
                         new_added_id_list.append(cur_unlearn_data_id)
                         break
         # Если факт можно вывести из других в minimal_set, он удаляется из minimal_set
+        # Если факт добавился к множеству для забывания и был найден в new_added_id_list, он удаляется из cur_minimal_set
         for new_added_id in new_added_id_list:
             cur_minimal_set.remove(new_added_id)
+    
+    # если мы покинули while
+    # Проверяем, можно ли все еще вывести целевой факт unlearn_data_id
     if unlearn_data_id in cur_minimal_set:
         # если целевой факт остался в финал.мн-ве (его нельзя вывести на основании других)
         return False
@@ -56,55 +70,63 @@ def get_minimal_nec_unlearn_and_not_included_unlearn(unlearn_data_id, edge_list,
     """
     Создает минимальное множество фактов для глубокого забывания целевого факта. То есть ищет факты, без которых
     целевой факт не вывести. Множество минимально, т.к. не содержит все вообще факты для вывода целевого,
-    а содержит их случайный минимальный набор. Для поиска случ. мин. набора в коде прим-ся random.sample 
+    а содержит их случайный минимальный набор. Для поиска случ. мин. набора в коде прим-ся random.sample
+
+    В идеале стоит разобрать на реальном ulearn_data_id
     """
     np.random.seed(seed)
     random.seed(seed)
     
     minimal_set = set([])
-    minimal_set_unverified = set([unlearn_data_id])
+    minimal_set_unverified = set([unlearn_data_id]) # очередь на обработку
 
     
     #Find a valid unlearning set expanded from the given unlearning result.
-    while len(minimal_set_unverified) >= 1:
-#         print(minimal_set_unverified)
+    while len(minimal_set_unverified) >= 1: # а когда мы выйдем вообще из этого цикла?
+        # print(minimal_set_unverified)
         # sorted, т.к. random.sample требует упорядоченность, потом список из 1 эл-та и сам эл-т [0]
-        cur_unlearn_data_id = random.sample(sorted(minimal_set_unverified), 1)[0]
-        # удаляем id этого элемента, minimal_set_unverified становится пустым в первый проход
+        # во время второго прохода здесь 1 случайный id из цепочки причин
+        cur_unlearn_data_id = random.sample(sorted(minimal_set_unverified), 1)[0] # именно здесь random.sample приводит к тому, что получаются разные minimal_unlearn_sets для 1 и того же факта
+        # удаляем id этого элемента, minimal_set_unverified становится пустым в первый проход, после второго прохода тоже остается пустым
         minimal_set_unverified.remove(cur_unlearn_data_id)
-        # и добавляем id рассматриваемого факта в minimal_set
+        # и добавляем id рассматриваемого факта в minimal_set, minimal_set каждый проход while пополняется на 1 факт, т.к. из minimal_set ничего не удаляется
         minimal_set.add(cur_unlearn_data_id)
-
-        # получаем tuple, отражающий связь для рассматриваемого id (69, 67)
+        # получаем tuple, отражающий связь для рассматриваемого id (69, 67), интересно, что ищем не в edge_list, а именно в dc_edge_list, чтобы работать со всеми фактами из замыкания
         unlearn_edge = dc_edge_list[cur_unlearn_data_id]
         # получаем название связи-ребра (father)
         unlearn_edge_type = dc_edge_type_list[cur_unlearn_data_id]
-        # если рассматриваемый факт = следствие в правиле, то эти ассоциированные с фактом правила сохраняем
-        rule_set_related = [rule for rule in rule_list if rule.right_tuple[1] == unlearn_edge_type]
+        # если рассматриваемый факт = следствие в правиле, то эти ассоциированные с фактом правила сохраняем, пример right_tuple: (1, 'husband', 0)
+        # если текущий cur_unlearn_data_id не является следствием в каком-то правиле, rule_set_related = [], в коде ниже в очередь minimal_set_unverified не добавится новый rand_ind, len(minimal_set_unverified), произойдет выход из while
+        rule_set_related = [rule for rule in rule_list if rule.right_tuple[1] == unlearn_edge_type] 
 
-        # по следствию из каждого правила ищем причины. Каждое правило можно вывести разными способами
+        # по следствию из каждого правила ищем причины. Каждое следствие можно вывести разными способами
         for rule in rule_set_related:
-            # причины [(10, 'father', 20), (20, 'brother', 40)],
-            # [(10, 'father', 20), (20, 'brother', 30), (30, 'brother', 40)]
             # Почему здесь именно rule.get_up_edges_list, а не просто get_up_edges_list? Т.к. класс Rule не импортирован
-            # Видимо смотрим, что могло привести к забываемому факту, основываясь на разных правилах
-            # up_edges_list - массив из причин забываемого факта
-            # То есть те факты, на основании которых можно восстановить целевой, ищет
-            up_edges_list = rule.get_up_edges_list(dc_edge_list, dc_edge_type_list, unlearn_edge, unlearn_edge_type)
-            for up_edges in up_edges_list:
+            # Смотрим, что могло привести к факту, основываясь на разных правилах
+            # То есть те факты, на основании которых можно восстановить целевой (10, 'uncle', 30), ищет
+            # напр. [[(10, father, 20), (20, brother, 30)], [(10, 'brother', 15), (15, 'father', 30)]]
+            up_edges_list = rule.get_up_edges_list(dc_edge_list, dc_edge_type_list, unlearn_edge, unlearn_edge_type) 
+            for up_edges in up_edges_list: # for [(10, father, 20), (20, brother, 30)] in [[...]]
                 if_suf = 0
-                for up_edge in up_edges:
-                    # получаем id ребра, которое сформировало причину
-                    ind = get_edge_id((up_edge[0], up_edge[2]), dc_edge_list)
-                    if (ind in minimal_set) or (ind in minimal_set_unverified):
+                # Если хотя бы 1 составляющая цепочки причины уже есть в minimal_set или minimal_set_unverified, if_suf = 1 и ни один id из цепочки не добавляется в minimal_set_unverified
+                # Это способ не добавить id в minimal_set_unverified, если id уже есть в minimal_set_unverified или в minimal_set, а из minimal_set_unverified факт все равно попадет в minimal_set в начале while
+                for up_edge in up_edges: # for (10, father, 20) in [(10, father, 20), (20, brother, 30)]
+                    # получаем id ребра, которое сформировало причину, из dc_edge_list расширенного мн-ва
+                    ind = get_edge_id((up_edge[0], up_edge[2]), dc_edge_list) # up_edge[0] = 10, up_edge[2] = 20
+                    if (ind in minimal_set) or (ind in minimal_set_unverified): # если это тот же id, что у unlearn_data_id или id из minimal_set_unverified(что значит??)
                         if_suf = 1
-                        break # если эта причина уже есть в мин.мн-ве, выходим из цикла обхода этой причины
+                        # (BREAK = защита от повторной обработки фактов, избыточности в minimal_set, бесконечных циклов while, если в графе есть циклы)
+                        break # если эта причина уже есть в мин.мн-ве, выходим из цикла обхода этой причины 
                 if if_suf == 0:
                     # random.sample нужен для получения разных минимальных множеств (для более честной оценки, как я понимаю)
+                    # взять из up_edges = [(10, father, 20), (20, brother, 30)] 1 случайный элемент 
+                    # (напр. (10, father, 20) из [(10, father, 20), (20, brother, 30)]), [0] из [(10, father, 20)] делает (10, father, 20)
                     rand_edge = random.sample(up_edges, 1)[0]
+                    # получаем id факта из dc_edge_list 
                     rand_ind = get_edge_id((rand_edge[0], rand_edge[2]), dc_edge_list)
-                    # кладем id причины для забываемого факта
+                    # кладем id причины для забываемого факта, но только один случайный из цепочки причин
                     minimal_set_unverified.add(rand_ind) # потом вернемся с этим фактом в начало while, начнем заново и начнем смотреть, что привело к этому факту
+
 
     # здесь по индексу фильтруются только оригинальные факты, выведенные логически и дополняющие edge_list до dc_edge_list исключаются   
     minimal_set = set([i for i in minimal_set if i < len(edge_list)])
@@ -113,7 +135,8 @@ def get_minimal_nec_unlearn_and_not_included_unlearn(unlearn_data_id, edge_list,
     # Финальная минимизация множества - удаление избыточных фактов 
     C = []
     t = 0
-    # когда len(C) == 0, выходим из while, удалили все возможные факты
+    # когда len(C) == 0, выходим из while, удалили все возможные факты, 
+    # t нужен, чтобы 1-й раз зайти в цикл
     while len(C) != 0 or t==0:
         C = []
         t = t+1
@@ -123,13 +146,14 @@ def get_minimal_nec_unlearn_and_not_included_unlearn(unlearn_data_id, edge_list,
         for data_id in shuffled_minimal_set:
             # временное удаление факта из minimal_set
             minimal_set.remove(data_id)
-            # если мы здесь
+            # если мы здесь, то проверяем, можно ли вывести unlearn_data_id без data_id
             if not check_if_in_deductive_closure(unlearn_data_id, minimal_set, edge_list, edge_type_list, dc_edge_list, dc_edge_type_list, rule_list):
                 # значит, data_id избыточен и из minimal_set его можно удалить навсегда
                 C.append(data_id)
             else:
                 # если мы здесь, data_id не избыточен и остается в minimal_set
                 minimal_set.add(data_id)
+    # таким образом, minimal_set здесь точно не станет больше, но может уменьшиться
     return minimal_set
 
 # unlearn_ind = массив из 0 и 1 размером 400 (т.к. строится на основе rel_ind, а relationships 400), где 1 = факт успешно забыт после unlearning
@@ -180,8 +204,10 @@ def get_valid_unlearn_general(unlearn_data_id, edge_list, edge_type_list, dc_edg
     
     return precision_list, recall_list, acc_list, minimal_unlearn_set
 
+# ind = get_edge_id((up_edge[0], up_edge[2]), dc_edge_list)
 def get_edge_id(edge, edge_list):
-    # for 0, (69, 67)
+    # edge = (10, 20), edge_list = [(69, 67), (10, 20), ...]
+    # for 0, (69, 67), ...
     for i, _edge in enumerate(edge_list):
         if _edge == edge:
             return i

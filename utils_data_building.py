@@ -121,7 +121,8 @@ class Rule:
             up_edges_list.append(up_edges)
         
         # итак, в up_edges_list - цепочка фактов, которая привела к выводу, получено на основании введенных логических правил
-        return up_edges_list # [(10, father, 20), (20, brother, 30)] получили на основании unlearn_edge (10, 30), unlearn_edge_type = 'uncle'
+        return up_edges_list # [[(10, father, 20), (20, brother, 30)]] получили на основании unlearn_edge (10, 30), unlearn_edge_type = 'uncle' 
+        # + любые другие цепочки, которыми можно вывести целевой факт (10, 'uncle', 30), например, [(10, 'brother', 15), (15, 'father', 30)]
     
     def get_dc_edges_list(self, edge_list, edge_type_list, person_list):
         """
