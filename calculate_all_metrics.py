@@ -3,14 +3,19 @@ import subprocess
 import shutil
 from pathlib import Path
 
-base_input_dir = "/content/drive/MyDrive/Unlearning/miscellaneous/unlearning_checkpoint/ga/gpt2_xl"
-base_output_dir = "/content/drive/MyDrive/Unlearning/miscellaneous/results/ga/gpt2_xl"
+# method = 'ga'
+method = 'npo'
+base_input_dir = f"/content/drive/MyDrive/Unlearning/miscellaneous/unlearning_checkpoint/{method}/gpt2_xl"
+base_output_dir = f"/content/drive/MyDrive/Unlearning/miscellaneous/results/{method}/gpt2_xl"
+print('base_input_dir', base_input_dir)
+print('base_output_dir', base_output_dir)
 
 # Создаем базовую выходную директорию
 Path(base_output_dir).mkdir(parents=True, exist_ok=True)
 
-# Обходим все unlearn_data_id от 0 до 54
-for unlearn_data_id in range(9, 27):
+# Обходим все unlearn_data_id
+# for unlearn_data_id in range(0, 17):
+for unlearn_data_id in range(30, 31):
     # Формируем путь к входной директории
     input_dir = f"{base_input_dir}/{unlearn_data_id}"
     
