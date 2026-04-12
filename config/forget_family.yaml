@@ -16,4 +16,5 @@ save_dir: /content/drive/MyDrive/Unlearning/miscellaneous/unlearning_checkpoint/
 overwrite_dir: false
 weight_decay: 0.01
 save_step_pattern: "log"
+# save_step_pattern: "epoch_between_4_8"
 seed: 42

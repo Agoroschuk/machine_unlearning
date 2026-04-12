@@ -165,6 +165,8 @@ class CustomFamilyTrainerForgetting(Trainer):
         calculate_perplexity(predictions) и т.д.
         Но здесь оценка по всей видимости по чекпоинтам модели делается
         """
+        # взаимосвязь self.state.global_step и self.state.epoch
+        # self.state.epoch = self.state.global_step / steps_per_epoch, steps_per_epoch= 1 (см. forget.py)
         if self.save_step_pattern == "log":
             curr_step = self.state.global_step
             # сохранение модели на этих шагах
@@ -177,7 +179,9 @@ class CustomFamilyTrainerForgetting(Trainer):
             self.reliable_save_model(curr_save_dir)
         # сохранение модели в конце каждой эпохи
         elif self.save_step_pattern == "every_epoch":
-            curr_epoch = self.state.epoch
+            curr_epoch = self.state.epoch # здесь эпоха м.б. дробной
+            # чтобы округленная до целого в меньшую сторону текущая эпоха была <= self.last_epoch(последняя сохраненная эпоха)
+            # чтобы без лишних сохранений
             if int(curr_epoch) <= self.last_epoch: 
                 print(curr_epoch)
                 return
@@ -185,6 +189,16 @@ class CustomFamilyTrainerForgetting(Trainer):
             curr_save_dir = os.path.join(self.save_dir, f"checkpoint-{int(curr_epoch)}")
             self.last_epoch = int(curr_epoch)
             # self.save_model(curr_save_dir)
+            self.reliable_save_model(curr_save_dir)
+        elif self.save_step_pattern == "epoch_between_4_8":
+            curr_step = self.state.global_step
+            # сохранение модели на этих шагах
+            if curr_step not in [5, 6, 7]: 
+                return
+            # сохранение 
+            curr_save_dir = os.path.join(self.save_dir, f"checkpoint-{curr_step}")
+            # self.save_model(curr_save_dir)
+            # более надежное сохранение на google drive, с повторениями и ожиданиями, без этого многие чекпоинты не сохранялись
             self.reliable_save_model(curr_save_dir)
         return
 
