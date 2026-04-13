@@ -15,7 +15,7 @@ print('base_output_dir', base_output_dir)
 Path(base_output_dir).mkdir(parents=True, exist_ok=True)
 
 # Обходим все unlearn_data_id
-for unlearn_data_id in range(8, 31):
+for unlearn_data_id in range(0, 31):
     # Формируем путь к входной директории
     input_dir = f"{base_input_dir}/{unlearn_data_id}"
     
