@@ -12,6 +12,9 @@ from datasets import Dataset
 from utils import get_model_identifiers_from_yaml
 from evaluate_util import eval_qa_vllm
 
+# проходит по всем чекпоинтам в пределах unlearn_data_id, при дорасчете результатов не учитывается в коде, что досчитать нужно лишь кусок
+# стоит подавать сюда список id для дорасчета
+
 parser = argparse.ArgumentParser(description='evaluate llm by vllm')
 parser.add_argument('--curr_save_dir', type=str, default=None)
 parser.add_argument('--model_family', type=str, default="llama2-7b")
