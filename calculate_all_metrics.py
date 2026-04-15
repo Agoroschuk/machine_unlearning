@@ -2,10 +2,12 @@ import os
 import subprocess
 import shutil
 from pathlib import Path
+import numpy as np
 
-method = 'ga'
-# method = 'npo'
-model = 'gpt2_xl'
+# method = 'ga'
+method = 'npo'
+# model = 'gpt2_xl'
+model = 'phi'
 base_input_dir = f"/content/drive/MyDrive/Unlearning/miscellaneous/unlearning_checkpoint/{method}/{model}"
 base_output_dir = f"/content/drive/MyDrive/Unlearning/miscellaneous/results/{method}/{model}"
 print('base_input_dir', base_input_dir)
@@ -15,7 +17,7 @@ print('base_output_dir', base_output_dir)
 Path(base_output_dir).mkdir(parents=True, exist_ok=True)
 
 # Обходим все unlearn_data_id
-for unlearn_data_id in range(0, 31):
+for unlearn_data_id in range(0, 5):
     # Формируем путь к входной директории
     input_dir = f"{base_input_dir}/{unlearn_data_id}"
     
@@ -24,7 +26,9 @@ for unlearn_data_id in range(0, 31):
         print(f"Пропускаю unlearn_data_id={unlearn_data_id} - директория не найдена: {input_dir}")
         continue
     
-    # Обходим все чекпоинты
+    # Обходим чекпоинты 
+    # for checkpoint in [f'checkpoint-{num}' for num in np.arange(5,8,1)]:
+    # for checkpoint in [f'checkpoint-{num}' for num in [8, 16, 32]]:
     for checkpoint in os.listdir(input_dir):
         if checkpoint.startswith("checkpoint-"):
             checkpoint_path = os.path.join(input_dir, checkpoint)
@@ -59,7 +63,7 @@ for unlearn_data_id in range(0, 31):
                     else:
                         # удаление на случай, что файл был создан ранее
                         os.remove(source_file)
-                        print(f"Ошибка: файл результатов не создан: {source_file}")
+                        print(f"Файл результатов не создан или уже создан ранее: {source_file}")
                 else:
                     print(f"Ошибка при обработке {checkpoint_path}:")
                     print(result.stderr)
