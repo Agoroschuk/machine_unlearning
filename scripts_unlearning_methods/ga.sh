@@ -1,16 +1,12 @@
-# Передача параметров через командную строку — гибкость (можно менять эксперименты без правки кода)
+#!/bin/bash  # нужно, чтобы предсказуемо выполнился script.sh
 
-#!/bin/bash  # нужно, чтобы выполнился script.sh
-
-# sudo apt-get update && sudo apt-get install -y trash-cli # для удаления минуя корзину
 # Пусть, вызвали 
 # bash scripts_unlearning_methods/${unlearning_methods}.sh $target_model $unlearn_target_data_id
 # bash scripts_unlearning_methods/ga.sh gpt2_xl 1
 
 # Пайплайн для ga unlearning
 # Задание переменных: номер порта для распределенного обучения и номера устройств gpu
-# master_port=18765;
-master_port=18764;
+master_port=18765;
 # devices="0,1" # 2gpu
 devices="0" 
 model=$1 # 1-й аргумент команд. строки (= gpt2-xl)
@@ -53,11 +49,8 @@ for cur_save_dir in ${save_path}/*/; do
     rm ${cur_save_dir}/*.safetensors
     rm ${cur_save_dir}/*.json
     rm ${cur_save_dir}/*.bin
-done # конец цикла
-    # Попробовать, чтобы удалялось сразу, а не попадало в корзину google drive 
-    # trash-put -f ${cur_save_dir}/*.safetensors
-    # trash-put -f ${cur_save_dir}/*.json
-    # trash-put -f ${cur_save_dir}/*.bin
+done
+
 
 
 
