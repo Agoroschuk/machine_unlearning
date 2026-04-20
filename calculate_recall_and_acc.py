@@ -80,6 +80,7 @@ argmax = np.asarray(recall_list).argmax()
 acc_rel = accuracy_list[argmax]
 # просто среднее число 1 в результате забывания на фактах биографии
 acc_bio = np.asarray(bio_ind).mean() # по идее факты биографии нетронуты дб.? 
+# success-du
 
 num_rel = len(rel_ind) # 400
 num_bio = len(bio_ind) # 300
@@ -93,4 +94,5 @@ print((rec, acc_rel, acc_bio, acc_all))
 # Сохранение нужно продумать по папочкам (метод/модель/id данных/чекпоинт) и сохранять на google drive в каком-то формате, в котором будут результаты
 # ('recall', 'accuracy of relationships', 'accuracy of biographies', 'accuracy of all knowledge base')
 # (0.75, 0.25, 0.023333333333333334, 0.15229885057471265)
+# надо добавить метрику success-du и сохранение ее + проверку на существование rec, acc_rel, acc_bio, acc_all в input_dir, чтобы не перезаписывать файлы
 torch.save((rec, acc_rel, acc_bio, acc_all), f"{args.input_dir}/rec_acc.pt")
