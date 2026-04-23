@@ -127,7 +127,7 @@ class CustomFamilyTrainerForgetting(Trainer):
             'model.safetensors',
             'training_args.bin'
         ]
-        os.makedirs(curr_save_dir, exist_ok=True)
+        os.makedirs(curr_save_dir, exist_ok=True) # curr_save_dir = папка чекпоинта конкретного
 
         for attempt in range(1, max_retries + 1):
             print(f'[ReliableSave] Attempt {attempt}/{max_retries} -> Saving model to {curr_save_dir}...')
@@ -140,14 +140,23 @@ class CustomFamilyTrainerForgetting(Trainer):
 
             if not missing_files:
                 print(f'[ReliableSave] All required files found in {curr_save_dir}')
+                # 👇 сохранение config.json в подпапку logs
+                logs_dir = os.path.join(curr_save_dir, "logs")
+                os.makedirs(logs_dir, exist_ok=True)
+                # Копируем config.json, который уже сохранил save_model
+                src = os.path.join(curr_save_dir, "config.json")
+                dst = os.path.join(logs_dir, "config.json")
+                if os.path.exists(src): # по коду избыточно, но вдруг пригодится
+                    shutil.copy2(src, dst)
+                    print(f"[ReliableSave] Copied config.json to {dst}")
                 return True
             else:
                 print(f'[ReliableSave] Missing files after attempt {attempt}:{missing_files}')
-                try:
-                    # вспомогат.процесс для помощи FUSE  --> похоже на ненужный код
-                    shutil.copy2(os.path.join(curr_save_dir, 'config.json'), curr_save_dir)
-                except Exception:
-                    pass
+                # try:
+                #     # вспомогат.процесс для помощи FUSE  --> похоже на ненужный код
+                #     shutil.copy2(os.path.join(curr_save_dir, 'config.json'), curr_save_dir)
+                # except Exception:
+                #     pass
         print(f'[ReliableSave] Failed to fully save_model after {max_retries} attempts')
         print(f'Succeeded to save: {os.listdir(curr_save_dir)}')
         return False
@@ -177,6 +186,7 @@ class CustomFamilyTrainerForgetting(Trainer):
             # self.save_model(curr_save_dir)
             # более надежное сохранение на google drive, с повторениями и ожиданиями, без этого многие чекпоинты не сохранялись
             self.reliable_save_model(curr_save_dir)
+            # сюда сохранять бы logs для каждого чекпоинта, которые бы содержали config.json от текущей llm
         # сохранение модели в конце каждой эпохи
         elif self.save_step_pattern == "every_epoch":
             curr_epoch = self.state.epoch # здесь эпоха м.б. дробной

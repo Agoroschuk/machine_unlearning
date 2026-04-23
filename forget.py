@@ -132,7 +132,6 @@ def main(cfg):
     max_steps = int(num_epochs*len(torch_format_dataset))//(batch_size*gradient_accumulation_steps*num_devices)
     print(f"max_steps: {max_steps}")
     print(f"steps_per_epoch: {steps_per_epoch}")
-    # папка logs создается через раз и всегда пустая. Чем должна быть заполнена?
     os.makedirs(f'{cfg.save_dir}/logs', exist_ok=True)
     
     # задание параметров для обучения (если передать неизвестный аргумент, будет ошибка)

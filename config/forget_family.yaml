@@ -4,6 +4,7 @@ model_path: /content/drive/MyDrive/Unlearning/miscellaneous/ft_model_checkpoint/
 config_path: config/
 
 lr: null
+percent_blocks_dropped: 0_dropped
 unlearn_data_id: 0
 data_path: synthetic_data/family_relationships.pt
 subsample_path: synthetic_data/subsample.pt
@@ -12,7 +13,7 @@ gradient_accumulation_steps: 1
 forget_loss: ga
 
 # save_dir: unlearning_checkpoint/${forget_loss}/${model_family}/${unlearn_data_id}
-save_dir: /content/drive/MyDrive/Unlearning/miscellaneous/unlearning_checkpoint/${forget_loss}/${model_family}/${unlearn_data_id}
+save_dir: /content/drive/MyDrive/Unlearning/miscellaneous/unlearning_checkpoint/${forget_loss}/${model_family}/${percent_blocks_dropped}/${unlearn_data_id}
 overwrite_dir: false
 weight_decay: 0.01
 save_step_pattern: "log"
