@@ -179,9 +179,9 @@ def main(cfg):
 
 
     if path_found:
-        # Загружает конфигурацию модели ИЗ Hugging Face, даже если веса берутся локально!
-        # Конфигурация = hidden_size, num_hidden_layers, num_attention_heads, vocab_size, other hyperpar
-        config = AutoConfig.from_pretrained(model_id)
+        # загрузка локального config.json в соответствии с удаленными трансформер-блоками
+        config = AutoConfig.from_pretrained(cfg.model_path)
+        # config = AutoConfig.from_pretrained(model_id)
 
         print("Loading from checkpoint")
         # загрузка модели
