@@ -4,12 +4,15 @@ import shutil
 from pathlib import Path
 import numpy as np
 
-# method = 'ga'
-method = 'npo'
-# model = 'gpt2_xl'
-model = 'phi'
-base_input_dir = f"/content/drive/MyDrive/Unlearning/miscellaneous/unlearning_checkpoint/{method}/{model}"
-base_output_dir = f"/content/drive/MyDrive/Unlearning/miscellaneous/results/{method}/{model}"
+# в идеале через bash скрипт передавать method, model, percent_blocks_dropped
+method = 'ga'
+# method = 'npo'
+model = 'gpt2_xl'
+# model = 'phi'
+# percent_blocks_dropped = 0
+percent_blocks_dropped = 25
+base_input_dir = f"/content/drive/MyDrive/Unlearning/miscellaneous/unlearning_checkpoint/{method}/{model}/{percent_blocks_dropped}_dropped"
+base_output_dir = f"/content/drive/MyDrive/Unlearning/miscellaneous/results/{method}/{model}/{percent_blocks_dropped}_dropped"
 print('base_input_dir', base_input_dir)
 print('base_output_dir', base_output_dir)
 
@@ -17,7 +20,7 @@ print('base_output_dir', base_output_dir)
 Path(base_output_dir).mkdir(parents=True, exist_ok=True)
 
 # Обходим все unlearn_data_id
-for unlearn_data_id in range(0, 5):
+for unlearn_data_id in range(0, 16):
     # Формируем путь к входной директории
     input_dir = f"{base_input_dir}/{unlearn_data_id}"
     
