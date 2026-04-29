@@ -250,7 +250,7 @@ def main(cfg):
                     input_ids, labels, attention_mask = inputs[0], inputs[1], inputs[2]
                     input_ids, labels, attention_mask = input_ids.unsqueeze(0).to(local_rank), labels.unsqueeze(0).to(local_rank), attention_mask.unsqueeze(0).to(local_rank)
                     # здесь происходит инференс и выделение логитов предсказаний модели, сохраняется на cpu для сохранения памяти gpu
-                    outputs_f_ref_logit = deepspeed_ref_model(input_ids, labels=labels, attention_mask=attention_mask).logits.cpu()
+                    outputs_f_ref_logit = deepspeed_ref_model(input_ids, labels=labels, attention_mask=attention_mask).logits.cpu() # outputs_f_ref_logit - это что? логиты ведь?
                     outputs_f_ref_logit_list.append(outputs_f_ref_logit)
             # torch.cat объединяет тензоры, не добавляя размерность в начале 
             outputs_f_ref_logits = torch.cat(outputs_f_ref_logit_list) 

@@ -75,7 +75,7 @@ class CustomFamilyTrainerForgetting(Trainer):
         if self.loss_type == "ga":
             forget_inputs = inputs
             input_ids, labels, attention_mask = inputs
-            outputs = model(input_ids,labels=labels, attention_mask=attention_mask)
+            outputs = model(input_ids,labels=labels, attention_mask=attention_mask) # model менялась только под токены конкретной QA-пары
             forget_loss = outputs.loss
             forget_loss = forget_loss * -1 # за счет *-1 мы увеличиваем потери
             loss = forget_loss
@@ -84,7 +84,6 @@ class CustomFamilyTrainerForgetting(Trainer):
             # outputs = model(input_ids, labels=labels, attention_mask=attention_mask)
             # loss = outputs.loss  # ← БЕРЕМ ПОТЕРИ КАК ЕСТЬ
             
-        # идея npo - наказывать модель за сходство со старыми логитами
         elif self.loss_type == 'npo':
             # минутка размерностей для понимания
             # inputs: [batch_size, seq_len]
@@ -97,7 +96,7 @@ class CustomFamilyTrainerForgetting(Trainer):
             input_ids, labels, attention_mask, outputs_f_ref_logits = forget_inputs
             outputs = model(input_ids,labels=labels, attention_mask=attention_mask)
             # outputs_f_ref_logits - логиты исходной (reference) модели
-            # outputs.logits - логиты текущей (забывающей) модели
+            # outputs.logits - логиты текущей (забывающей) модели, тут должны маскироваться токены вопроса? Маскируются ли в outputs_f_ref_logits?
             neg_log_ratio = outputs_f_ref_logits.to(outputs.logits.device) - outputs.logits
             # mean() для усреднения по всем трем размерностям [batch_size, seq_len, vocab_size]
             loss = -F.logsigmoid(self.beta * neg_log_ratio).mean() * 2 / self.beta
@@ -241,10 +240,10 @@ class CustomFamilyTrainerForgetting(Trainer):
         # Otherwise, we assume the reference model fits in memory and is initialized on each device with ZeRO disabled (stage 0)
         if config_kwargs["zero_optimization"]["stage"] != 3:
             config_kwargs["zero_optimization"]["stage"] = 0
-        config_kwargs["optimizer"] = {"type": None} #отключение оптимизатора, т.к. deepspeed вроде только на этапе инференса применяется
+        config_kwargs["optimizer"] = {"type": None} # отключение оптимизатора, т.к. deepspeed вроде только на этапе инференса применяется
         model, *_ = deepspeed.initialize(model=model, config=config_kwargs)
         model.eval() # отключение dropout, batchnorm для инференса
-        #set the gradients to false for every parameter
+        # set the gradients to false for every parameter
         # веса модели при backward() не обновляются, но градиенты сохраняются
         for param in model.parameters():
             param.requires_grad = False
