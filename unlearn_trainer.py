@@ -105,6 +105,7 @@ class CustomFamilyTrainerForgetting(Trainer):
         
     # инференс на 1 батче данных
     def prediction_step(self, model, inputs, prediction_loss_only: bool, ignore_keys=None):
+        # self.model известен всем методам класса, т.к. model передан CustomFamilyTrainerForgetting(Trainer) в forget.py
         input_ids, labels, attention_mask = inputs
         # forward pass
         with torch.no_grad(): # инференс, не строится граф вычислений
@@ -120,11 +121,13 @@ class CustomFamilyTrainerForgetting(Trainer):
         Ранее наблюдалась проблема с сохранением из-за, предположительно, лагов записи на google drive, а не локально
         """
         # список не полный, главное - model.safetensors
+        # trainer_state.json также важен, содержит lr, размер батча, число эпох, динамику loss и grad_norm
         required_files = [
             'config.json',
             'generation_config.json',
             'model.safetensors',
-            'training_args.bin'
+            'training_args.bin',
+            'trainer_state.json'
         ]
         os.makedirs(curr_save_dir, exist_ok=True) # curr_save_dir = папка чекпоинта конкретного
 
@@ -139,23 +142,19 @@ class CustomFamilyTrainerForgetting(Trainer):
 
             if not missing_files:
                 print(f'[ReliableSave] All required files found in {curr_save_dir}')
-                # 👇 сохранение config.json в подпапку logs
                 logs_dir = os.path.join(curr_save_dir, "logs")
                 os.makedirs(logs_dir, exist_ok=True)
-                # Копируем config.json, который уже сохранил save_model
-                src = os.path.join(curr_save_dir, "config.json")
-                dst = os.path.join(logs_dir, "config.json")
-                if os.path.exists(src): # по коду избыточно, но вдруг пригодится
-                    shutil.copy2(src, dst)
-                    print(f"[ReliableSave] Copied config.json to {dst}")
+                # сохранение config.json и др. важных файлов в подпапку logs (надо также сохранять файл с инфо о замороженных частях)
+                files_to_log = ['config.json', 'trainer_state.json']
+                for filename in files_to_log:
+                    src = os.path.join(curr_save_dir, filename)
+                    dst = os.path.join(logs_dir, filename)
+                    if os.path.exists(src):
+                        shutil.copy2(src, dst)
+                        print(f"[ReliableSave] Copied {filename} to {dst}")
                 return True
             else:
                 print(f'[ReliableSave] Missing files after attempt {attempt}:{missing_files}')
-                # try:
-                #     # вспомогат.процесс для помощи FUSE  --> похоже на ненужный код
-                #     shutil.copy2(os.path.join(curr_save_dir, 'config.json'), curr_save_dir)
-                # except Exception:
-                #     pass
         print(f'[ReliableSave] Failed to fully save_model after {max_retries} attempts')
         print(f'Succeeded to save: {os.listdir(curr_save_dir)}')
         return False

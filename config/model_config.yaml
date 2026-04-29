@@ -34,9 +34,9 @@ gpt2_xl:
   flash_attention2: "true"
   gradient_checkpointing: "true"
   ga_lr: "2e-5"
-  ga_num_epochs: 16
+  ga_num_epochs: 32
   npo_lr: "4e-5"
-  npo_num_epochs: 16
+  npo_num_epochs: 32
   whp_alpha_list: "0.5 1.0 5.0 10.0 100.0 1000.0"
   tv_alpha_list: "0.2 1.0 5.0 10.0 30.0 60.0 80.0"
   reinforce_lr: "2e-5"

@@ -5,6 +5,7 @@ config_path: config/
 
 lr: null
 percent_blocks_dropped: 0_dropped
+percent_blocks_freezed: 0.25
 unlearn_data_id: 0
 data_path: synthetic_data/family_relationships.pt
 subsample_path: synthetic_data/subsample.pt
