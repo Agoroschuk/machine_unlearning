@@ -198,7 +198,9 @@ def main(cfg):
             torch_dtype=torch.bfloat16, 
             token=os.environ['HF_TOKEN'], 
             trust_remote_code = True)
-        freeze_ratio = float(cfg.percent_blocks_freezed)
+        freeze_ratio_str = cfg.percent_blocks_freezed # str from config
+        freeze_percent = float(freeze_ratio_str.replace("_freezed", ""))
+        freeze_ratio = freeze_percent / 100.0
         if freeze_ratio > 0:
             model = freeze_transformer_blocks(model, freeze_ratio)
             # внесение данных о заморозке слоев в config.json

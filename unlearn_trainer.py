@@ -144,7 +144,7 @@ class CustomFamilyTrainerForgetting(Trainer):
                 print(f'[ReliableSave] All required files found in {curr_save_dir}')
                 logs_dir = os.path.join(curr_save_dir, "logs")
                 os.makedirs(logs_dir, exist_ok=True)
-                # сохранение config.json и др. важных файлов в подпапку logs (надо также сохранять файл с инфо о замороженных частях)
+                # сохранение config.json (в нем и инфо о замороженных слоях) и др. важных файлов в подпапку logs
                 files_to_log = ['config.json', 'trainer_state.json']
                 for filename in files_to_log:
                     src = os.path.join(curr_save_dir, filename)
