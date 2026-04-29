@@ -205,7 +205,7 @@ def main(cfg):
             model = freeze_transformer_blocks(model, freeze_ratio)
             # внесение данных о заморозке слоев в config.json
             model.config.layer_freeze_metadata = model._layer_freeze_metadata
-            model.config.trainable_parameters_metadata = report_trainable_parameters(model)
+            # model.config.trainable_parameters_metadata = report_trainable_parameters(model) # возвращает одни нули, пока отключена
             print(f'Applied layer freezing with ratio: {freeze_ratio}')
             print(f'Freezed metadata: {model._layer_freeze_metadata}')
     else:

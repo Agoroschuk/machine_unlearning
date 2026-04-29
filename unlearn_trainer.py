@@ -134,6 +134,7 @@ class CustomFamilyTrainerForgetting(Trainer):
         for attempt in range(1, max_retries + 1):
             print(f'[ReliableSave] Attempt {attempt}/{max_retries} -> Saving model to {curr_save_dir}...')
             self.save_model(curr_save_dir)
+            self.state.save_to_json(os.path.join(curr_save_dir, "trainer_state.json"))
             os.sync() # просьба к ядру linux синхронизировать (записать) все буферы записи на гугл диск
             time.sleep(sleep_time) # приостановка текущего потока программы на sleep_time секунд (чтобы FUSE-драйвер google drive закончил синхронизацию)
 
