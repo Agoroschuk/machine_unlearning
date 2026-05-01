@@ -7,8 +7,8 @@
 # bash scripts_unlearning_methods/ga.sh gpt2_xl 0_dropped 25_freezed 1
 
 # Задание переменных: номер порта для распределенного обучения и номера устройств gpu
-# master_port=18765;
-master_port=18764;
+master_port=18765;
+# master_port=18764;
 # devices="0,1" # 2gpu
 devices="0" 
 model=$1 # 1-й аргумент команд. строки (= gpt2-xl)
