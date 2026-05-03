@@ -20,7 +20,7 @@ from freeze_layers import freeze_transformer_blocks
 
 # подсчет числа обучаемых параметров
 # если print_trainable_parameters(model) = 0, значит, все слои заморожены
-def report_trainable_parameters(model):  # единственная оставленная утилитарная ф-ция
+def report_trainable_parameters(model):  # не работает, даже trainable_params выдает 0
     """
     Prints the number of trainable parameters in the model.
     """
@@ -229,7 +229,7 @@ def main(cfg):
         # т.к. формат name=value, а не просто value 
         model=model,
         tokenizer=tokenizer,
-        train_dataset=torch_format_dataset,
+        train_dataset=torch_format_dataset, # для 1 qa-пары, если unlearn_data_id != -1
         compute_metrics=None,
         args=training_args, # здесь о том, как нужно обучать
         data_collator=custom_data_collator if not cfg.forget_loss == "npo" else custom_data_collator_npo,
@@ -264,7 +264,7 @@ def main(cfg):
                     input_ids, labels, attention_mask = inputs[0], inputs[1], inputs[2]
                     input_ids, labels, attention_mask = input_ids.unsqueeze(0).to(local_rank), labels.unsqueeze(0).to(local_rank), attention_mask.unsqueeze(0).to(local_rank)
                     # здесь происходит инференс и выделение логитов предсказаний модели, сохраняется на cpu для сохранения памяти gpu
-                    outputs_f_ref_logit = deepspeed_ref_model(input_ids, labels=labels, attention_mask=attention_mask).logits.cpu() # outputs_f_ref_logit - это что? логиты ведь?
+                    outputs_f_ref_logit = deepspeed_ref_model(input_ids, labels=labels, attention_mask=attention_mask).logits.cpu()
                     outputs_f_ref_logit_list.append(outputs_f_ref_logit)
             # torch.cat объединяет тензоры, не добавляя размерность в начале 
             outputs_f_ref_logits = torch.cat(outputs_f_ref_logit_list) 
