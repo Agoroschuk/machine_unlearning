@@ -158,7 +158,7 @@ def main(cfg):
         optim="paged_adamw_32bit", #разница с AdamW только в уменьшенном использовании памяти
         save_strategy="no", # не сохранять промежуточные состояния модели каждые save_steps шагов
         ddp_find_unused_parameters= False, # Distributed Data Parallel for multi-GPU
-        deepspeed='config/ds_config.json',
+        deepspeed='config/ds_config.json', # на обучении тоже используется deepspeed (как и для получения reference правдоподобий)
         weight_decay = cfg.weight_decay, #l2-рег. (штраф за большие веса для предотвращения переобучения)
         eval_steps = 1,
         eval_strategy = "steps",
@@ -243,10 +243,10 @@ def main(cfg):
     model.config.use_cache = False  # silence the warnings. Please re-enable for inference!
     # По идее на инференсе должно быть быстрее с model.config.use_cache = True
     
-    # особенность для npo - предварительное вычисление reference логитов
+    # получение правдоподобия ref (исходной) модели на забываемой последовательности
     if cfg.forget_loss == "npo":
-        outputs_f_ref_dir = f"{cfg.save_dir}/outputs_f_ref.pt"
-        if not os.path.exists(outputs_f_ref_dir):
+        ref_seq_logps_dir = f"{cfg.save_dir}/ref_seq_logps.pt"
+        if not os.path.exists(ref_seq_logps_dir):
             ref_model = AutoModelForCausalLM.from_pretrained(
                 cfg.model_path,  # на предобученной модели делаем инференс 
                 config=config, 
@@ -254,20 +254,27 @@ def main(cfg):
                 torch_dtype=torch.bfloat16, 
                 token=os.environ['HF_TOKEN'], 
                 trust_remote_code = True)
+            # это именно замороженная reference модель
             deepspeed_ref_model = trainer.e_prepare_deepspeed(ref_model) # готовим замороженную для инференса версию модели (см. model.eval() в e_prepare_deepspeed)
             
             with torch.no_grad():
-                outputs_f_ref_logit_list = []
+                ref_seq_logps_list = []
                 # для каждой пары вопрос-ответ, преобразованный к виду, доступному llm (train_dataset)
                 for data_id in tqdm(range(len(trainer.train_dataset))):
                     inputs = trainer.train_dataset[data_id]
                     input_ids, labels, attention_mask = inputs[0], inputs[1], inputs[2]
+                    
                     input_ids, labels, attention_mask = input_ids.unsqueeze(0).to(local_rank), labels.unsqueeze(0).to(local_rank), attention_mask.unsqueeze(0).to(local_rank)
-                    # здесь происходит инференс и выделение логитов предсказаний модели, сохраняется на cpu для сохранения памяти gpu
-                    outputs_f_ref_logit = deepspeed_ref_model(input_ids, labels=labels, attention_mask=attention_mask).logits.cpu()
-                    outputs_f_ref_logit_list.append(outputs_f_ref_logit)
-            # torch.cat объединяет тензоры, не добавляя размерность в начале 
-            outputs_f_ref_logits = torch.cat(outputs_f_ref_logit_list) 
+                    # labels не передаются, чтобы не считался дефолтный loss
+                    ref_outputs = deepspeed_ref_model(
+                        input_ids, 
+                        attention_mask=attention_mask
+                        )
+                    # изначально labels и ref_outputs находятся на gpu
+                    ref_seq_logp = trainer._get_sequence_log_probs(ref_outputs.logits, labels).cpu()
+                    ref_seq_logps_list.append(ref_seq_logp)
+            # torch.cat объединяет тензоры, не добавляя размерность в начале ([1,2] + [1,2] -> [2,2]), dim=0 <=> по 1-й оси склеиваем
+            ref_seq_logps = torch.cat(ref_seq_logps_list, dim=0)
                     
             deepspeed_ref_model.destroy()
             del deepspeed_ref_model
@@ -275,8 +282,10 @@ def main(cfg):
             gc.collect()
             torch.cuda.empty_cache()
             # torch.save(что сохранять, куда сохранять)
-            torch.save(outputs_f_ref_logits, outputs_f_ref_dir)
-        trainer.train_dataset.outputs_f_ref_logits = torch.load(outputs_f_ref_dir)
+            # torch.save(outputs_f_ref_logits, outputs_f_ref_dir)
+            torch.save(ref_seq_logps, ref_seq_logps_dir)
+        # trainer.train_dataset.outputs_f_ref_logits = torch.load(outputs_f_ref_dir)
+        trainer.train_dataset.ref_seq_logps = torch.load(ref_seq_logps_dir)
     
     # запуск обучения, train() наследуется от Trainer, вызывает кастомные evaluate(), compute_loss() 
     trainer.train()

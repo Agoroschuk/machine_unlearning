@@ -17,8 +17,7 @@ from transformers.integrations.deepspeed import (
 
 class CustomTrainer(Trainer):  # должен подходить для обычного обучения и finetuning
     def compute_loss(self, model, inputs, return_outputs=False):
-        # labels = те же токены, что input_ids, но со сдвигом на 1 позицию вперед
-        # (по input_ids предсказать labels, грубо говоря)
+        # labels = те же токены, что input_ids, но со сдвигом на 1 позицию вперед, но shift под капотом (по input_ids предсказать labels, грубо говоря)
         input_ids, labels, attention_mask = inputs
         # forward pass
         outputs = model(input_ids, labels=labels, attention_mask=attention_mask)
@@ -33,7 +32,7 @@ class CustomTrainer(Trainer):  # должен подходить для обыч
         # torch.view(-1, self.model.config.num_labels) значит, что схлопнутся (перемножатся) все размерности, кроме num_labels
         # в результате на каждый label будет приходиться массив из логитов на каждый эл-т словаря
         # Как можно видеть, для вычисления loss нужны только логиты предсказаний на каждый токен словаря и правильная метка
-        # => пересмотреть, что под капотом NPO метода
+
         return (loss, outputs) if return_outputs else loss
 
     def prediction_step(
@@ -52,35 +51,15 @@ class CustomTrainer(Trainer):  # должен подходить для обыч
         return (loss, logits, labels)
 
 
-@staticmethod
-def _get_sequence_log_probs(logits, labels):
-    # logits: [batch, seq_len, vocab]
-    # labels: [batch, seq_len]
-    shift_logits = logits[:, :-1, :].float().contiguous() # берем все позиции, кроме последней в seq_len
-    shift_labels = labels[:, 1:].contiguous() # берем все label, но seq_len со 2-й
-
-    valid_mask = shift_labels.ne(-100)
-    safe_labels = shift_labels.masked_fill(~valid_mask, 0) #все -100 заменяем нулями (????)
-
-    token_log_probs = (
-        F.log_softmax(shift_logits, dim=-1)
-        .gather(dim=-1, index=safe_labels.unsqueeze(-1))
-        .squeeze(-1)
-    )
-
-    token_log_probs = token_log_probs * valid_mask
-    return token_log_probs.sum(dim=-1)  # [batch]
-
-
 class CustomFamilyTrainerForgetting(Trainer):
     """
     compute_loss() → вызывается на каждом шаге обучения для расчета loss
     evaluate() → вызывается по расписанию (eval_steps) для сохранения
     reliable_save_model() → вызывается из evaluate() для надежного сохранения
-    prediction_step() → вызывается при trainer.predict() для инференса
+    prediction_step() → вызывается при trainer.predict() для инференса, 
+    но в этом коде не используется, а его функционал в compute_loss
     e_prepare_deepspeed() → вспомогательный метод для настройки DeepSpeed
     """
-
     def __init__(self, *args, **kwargs):
         # извлечение кастомных аргументов
         self.loss_type = kwargs.pop("forget_loss")
@@ -95,17 +74,36 @@ class CustomFamilyTrainerForgetting(Trainer):
         if self.loss_type == "npo":
             self.beta = 0.1
 
-    # Trainer заберет мой кастомный лосс, т.к. CustomFamilyTrainerForgetting наследуется от Trainer
-    # https://github.com/huggingface/transformers/blob/main/src/transformers/models/llama/modeling_llama.py
-    # logits = self.lm_head(hidden_states[:, slice_indices, :])
-    # (forward.py -> loss = self.loss_function(logits=logits, labels=labels, vocab_size=self.config.vocab_size, **kwargs))
-    # hf subclass for custom losses etc: https://huggingface.co/docs/transformers/en/trainer_customize
+    @staticmethod
+    def _get_sequence_log_probs(logits, labels):
+        # logits: [batch, seq_len, vocab]
+        # labels: [batch, seq_len]
+        # т.к. по позиции логита 0 делается предсказание на следующий токен, технически нужны все эти сдвиги
+        shift_logits = (logits[:, :-1, :].float().contiguous())  # в измерении seq_len берем все значения, кроме последнего
+        shift_labels = labels[..., 1:].contiguous()  # в последнем измерении берем все элементы, кроме первого (не важно, сколько измерений до благодаря '...')
+
+        valid_mask = shift_labels.ne(-100)  # помечаем токены ответа, которые не замаскированы -100
+        safe_labels = shift_labels.masked_fill(~valid_mask, 0)  # заполняем токены вопроса, которые замаскированы как -100, нулями
+
+        # dim=-1 <=> последняя размерность тензора, vocab_size для shift_logits, log_softmax по словарю, чтобы получить logp токена по словарю
+        # выбираем логарифмическую вероятность правильного токена (для определения правильного safe_labels)
+        token_log_probs = F.log_softmax(shift_logits, dim=-1).gather(
+                dim=-1,  # gather (сбор по индексу в заданной оси) по последней оси vocab
+                index=safe_labels.unsqueeze(-1),  # задание индекса, unsqueeze(-1) добавляет размерность 1 в конце [batch, seq_len-1] -> [batch, seq_len-1, 1]
+            ).squeeze(-1) # убирает последнюю единичную размерность, добавленную для работы gather, остается [batch, seq_len-1]
+
+        # [batch, seq_len-1]
+        token_log_probs = (token_log_probs * valid_mask)  # masked токены не вносят вклад, т.к. на их местах стоят нули, -100 заменили на 0 из-за gather
+        return token_log_probs.sum(dim=-1)  # [batch]
+
+    # HF Trainer заберет мой кастомный лосс, т.к. CustomFamilyTrainerForgetting наследуется от Trainer
+    # hf subclass for custom losses etc: https://huggingface.co/docs/transformers/en/trainer_customize + more details in custom_losses.ipynb in colab
     def compute_loss(self, model, inputs, return_outputs=False):
         # стандартный сe loss, хотим, чтобы каждый новый токен был наименее правдоподобен (софтмакс по всему размеру словаря в tokenizer)
         if self.loss_type == "ga":
             forget_inputs = inputs
             # это input_ids, labels, attention_mask только по токенам qa-пары (единственных поданных в модель данных то есть)
-            input_ids, labels, attention_mask = inputs
+            input_ids, labels, attention_mask = forget_inputs
             outputs = model(
                 input_ids, labels=labels, attention_mask=attention_mask
             )  # model менялась только под токены конкретной QA-пары
@@ -121,25 +119,27 @@ class CustomFamilyTrainerForgetting(Trainer):
             # минутка размерностей для понимания
             # inputs: [batch_size, seq_len]
             # outputs.logits: [batch_size, seq_len, vocab_size]
-            # outputs_f_ref_logits: [batch_size, seq_len, vocab_size]
+            # _seq_logps: [batch_size]
             # в seq_len входят как токены вопроса, так и токены сгенерированного ответа,
             # при расчете loss токены вопроса не учитывают (вопрос = контекст)
 
             forget_inputs = inputs
-            # input_ids, labels, attention_mask, outputs_f_ref_logits = forget_inputs
-            input_ids, labels, attention_mask, ref_seq_logps = forget_inputs
-            outputs = model(input_ids, labels=labels, attention_mask=attention_mask)
+            input_ids, labels, attention_mask, ref_seq_logps = forget_inputs  # ref_seq_logps придут от data_module.py, forget.py
+            # важно не передавать labels, чтобы не посчитался дефолтный loss, если они переданы
+            # строка ниже же обеспечивает только forward pass для получения предсказаний и возвращает только logits предсказаний
+            outputs = model(input_ids, attention_mask=attention_mask)
             cur_seq_logps = self._get_sequence_log_probs(outputs.logits, labels)
-            ref_seq_logps = ref_seq_logps.to(cur_seq_logps.device)
-            # это должна быть разность исходного и theta-правдоподобий
+            ref_seq_logps = ref_seq_logps.to(cur_seq_logps.device)  # ref_seq_logps из deepspeed_ref_model в forget.py
             neg_log_ratio = ref_seq_logps - cur_seq_logps
-            # neg_log_ratio = (outputs_f_ref_logits.to(outputs.logits.device) - outputs.logits)
-            # mean() для усреднения по всем трем размерностям [batch_size, seq_len, vocab_size]
-            loss = - (2.0 / self.beta) * F.logsigmoid(self.beta * neg_log_ratio).mean()
+            # mean() для усреднения по элементам батча [batch_size] (это мат. ож. из оригинальной статьи)
+            loss = -(2.0 / self.beta) * F.logsigmoid(self.beta * neg_log_ratio).mean()
 
         return (loss, outputs) if return_outputs else loss
 
-    # инференс на 1 батче данных
+    # переопределяет prediction_step из trainer.py transformers  https://github.com/huggingface/transformers/blob/main/src/transformers/trainer.py (override)
+    # но не используется, т.к. вызываться должен в evaluation_loop, но для этого должны вызваться `Trainer.evaluate()` или `Trainer.predict()`, но этого нет
+    # prediction_step нужен для forward в режиме evaluation, 
+    # в этом коде это происходит в compute_loss для обучения и в forget.py для получения ref_logps, (написано вручную, не используется Trainer)
     def prediction_step(
         self, model, inputs, prediction_loss_only: bool, ignore_keys=None
     ):
@@ -308,4 +308,4 @@ class CustomFamilyTrainerForgetting(Trainer):
         return model  # та же модель, но обернутая в DeepSpeed engine и настроенная для эффективного инференса
 
         # На инференсе одновременно model.eval() и with torch.no_grad(), но логику делят по компонентам, потому в e_prepare_deepspeed только model.eval(),
-        # а with torch.no_grad() в forget.py для получения логитов в npo
+        # а with torch.no_grad() в forget.py для получения ref правдоподобий в npo

@@ -42,8 +42,6 @@ def convert_raw_data_to_model_format(tokenizer, max_length, question, answer, mo
         max_length=max_length,
         truncation=True,
     )
-        
-        
     #change label to -100 for question tokens (чтобы модель не генерировала вопрос)
 #     print(encoded['input_ids'][num_question_tokens], label[num_question_tokens])
     # маскируем вопрос с помощью -100, оставляем ответ. Модель разучивает связку вопрос-ответ, но для вычисления loss берется лишь ответ
@@ -57,7 +55,7 @@ def convert_raw_data_to_model_format(tokenizer, max_length, question, answer, mo
     #     'labels': label                  # Что предсказывать (только ответ): -100 у тех токенов, которые не предсказываем, input_ids у остальных
     # }
 
-    # # Forward pass:
+    # # Forward pass in default HF Trainer logic:
     # outputs = model(**inputs)           # Модель пытается предсказать ответ
     # loss = cross_entropy(outputs, labels) # Сравниваем с ЦЕЛЬЮ (только ответ) и не учитываем question токены при подсчете ошибки
 
@@ -71,9 +69,9 @@ class FamilyForgetDataset(Dataset):
             unlearn_data_id=0, 
             question_key=None, #question4
             answer_key=None, #answer4
-            outputs_f_ref_logits=None):
-        # Всегда вызывать super() для совместимости - хорошая практика
-        # Даже если в родительском классе сейчас нет конструктора, он может быть добавлен позже => совместимость останется
+            ref_seq_logps=None
+            ):
+        # вызов конструктора родительского класса (Dataset) <=> вызов Dataset.__init__(self)
         super(FamilyForgetDataset, self).__init__()
         self.tokenizer = tokenizer
         self.max_length = max_length
@@ -88,7 +86,7 @@ class FamilyForgetDataset(Dataset):
         self.model_configs = model_configs
         # WORLD_SIZE = 1 означает нераспределенное обучение на GPU
         self.world_size = int(os.environ.get('WORLD_SIZE', 1))
-        self.outputs_f_ref_logits = outputs_f_ref_logits
+        self.ref_seq_logps=ref_seq_logps
 
     def __len__(self):
         # если бы world_size = 2 был, один и тот же unlearn_data_id бы раздвоился, чтобы далее ... (дописать)
@@ -117,13 +115,14 @@ class FamilyForgetDataset(Dataset):
             label_list.append(converted_data[1])
             pad_attention_mask_list.append(converted_data[2])
 
-        if self.outputs_f_ref_logits is not None: # отдельная логика для npo
+
+        if self.ref_seq_logps is not None:
             # squeeze удаляет единичные размерности
             # stack складывает несколько тензоров в один, добавляя в начале новую размерность
             return torch.stack(pad_input_ids_list).squeeze(),\
                     torch.stack(label_list).squeeze(),\
                     torch.stack(pad_attention_mask_list).squeeze(),\
-                    self.outputs_f_ref_logits[idx],\
+                    self.ref_seq_logps[idx],\
                     torch.tensor(indices)
         else:
             return torch.stack(pad_input_ids_list).squeeze(),\
@@ -148,16 +147,21 @@ class FamilyForgetDataset(Dataset):
 # "Кто отец John?" → "Mike"
 
 # samples = список элементов, которые вернул FamilyForgetDataset.__getitem__
-def custom_data_collator(samples): # здесь батчи из одного и того же факта, вроде это улучшает забывание (?)
+def custom_data_collator(samples):
     input_ids = [s[0] for s in samples] # просто объединяем, например, input_ids для всех примеров 1 и того же факта
     labels = [s[1] for s in samples]
     attention_mask = [s[2] for s in samples]
-    # функция возвращает три 2-мерных тензора [batch_size, max_length]
+    # функция возвращает три 2-мерных тензора [batch_size, seq_len]
     return torch.stack(input_ids), torch.stack(labels), torch.stack(attention_mask)
 
-def custom_data_collator_npo(samples):  # for npo
+def custom_data_collator_npo(samples):
     input_ids = [s[0] for s in samples]
     labels = [s[1] for s in samples]
     attention_mask = [s[2] for s in samples]
-    ref_logits = [s[3] for s in samples]
-    return torch.stack(input_ids), torch.stack(labels), torch.stack(attention_mask), torch.stack(ref_logits)
+    ref_seq_logps=[s[3] for s in samples]
+    return (
+        torch.stack(input_ids), 
+        torch.stack(labels), 
+        torch.stack(attention_mask), 
+        torch.save(ref_seq_logps)
+    )
