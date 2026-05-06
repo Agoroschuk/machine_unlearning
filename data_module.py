@@ -163,5 +163,5 @@ def custom_data_collator_npo(samples):
         torch.stack(input_ids), 
         torch.stack(labels), 
         torch.stack(attention_mask), 
-        torch.save(ref_seq_logps)
+        torch.stack(ref_seq_logps)
     )
