@@ -5,7 +5,7 @@
 
 model=$1
 percent_blocks_dropped=$2 
-percent_blocks_freezed=$3
+percent_blocks_freezed=$3 # если передать 0_freezed, заморозки не будет, иначе будет указанный процент (учтено в forget.py)
 unlearn_data_id=$4
 
 master_port=16704
@@ -38,4 +38,4 @@ for cur_save_dir in ${save_path}/*/; do
     rm ${cur_save_dir}/*.safetensors
     rm ${cur_save_dir}/*.json
     rm ${cur_save_dir}/*.bin
-done;
+done
