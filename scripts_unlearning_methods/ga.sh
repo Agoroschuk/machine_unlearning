@@ -20,9 +20,7 @@ model_path=/content/drive/MyDrive/Unlearning/miscellaneous/ft_model_checkpoint/f
 forget_loss=ga
 
 # Забывание запускается отдельно для каждого unlearn_data_id
-save_path=/content/drive/MyDrive/Unlearning/miscellaneous/unlearning_checkpoint/ga/${model}/${percent_blocks_dropped}/${percent_blocks_freezed}/${unlearn_data_id}
-# save_path_full_checkpoints=/content/drive/MyDrive/Unlearning/miscellaneous/unlearning_checkpoint/full_checkpoints/ga/${model}/${unlearn_data_id}
-# save_path=save_path_full_checkpoints
+save_path=/content/drive/MyDrive/Unlearning/miscellaneous/unlearning_checkpoint/${forget_loss}/${model}/${percent_blocks_dropped}/${percent_blocks_freezed}/${unlearn_data_id}
 mkdir -p $save_path  # создание папки для сохранения результатов
 
 # torchrun - launcher для распределенного обучения PyTorch
