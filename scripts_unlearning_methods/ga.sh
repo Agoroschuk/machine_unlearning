@@ -4,7 +4,7 @@
 # bash scripts_unlearning_methods/ga.sh gpt2_xl 1  (was for 0_dropped layers)
 
 # New call
-# bash scripts_unlearning_methods/ga.sh gpt2_xl 0_dropped 25_freezed 1
+# bash scripts_unlearning_methods/npo.sh gpt2_xl 0_dropped 0_freezed 0
 
 # Задание переменных: номер порта для распределенного обучения и номера устройств gpu
 master_port=18765;
