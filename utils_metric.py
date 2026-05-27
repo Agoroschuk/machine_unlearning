@@ -176,7 +176,8 @@ def get_prec_rec_acc(minimal_set, unlearn_ind):
     # Чем больше лишнего забыто, тем ниже accuracy
     acc = 1 - (unlearn_ind * (1 - minimal_set_ind)).sum() / (len(unlearn_ind) - len(minimal_set))
     return prec, rec, acc
-      
+
+# num_seed = 100, переопределение в calculate_recall_and_acc.pt    
 def get_valid_unlearn_general(unlearn_data_id, edge_list, edge_type_list, dc_edge_list, dc_edge_type_list, unlearn_ind, rule_list, num_seed=10, 
                               save_dir="synthetic_data/unlearn_minimal_set" # здесь почти 400 .pt отдельных файлов
                               ):

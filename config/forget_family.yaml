@@ -7,10 +7,13 @@ lr: null
 percent_blocks_dropped: 0_dropped
 percent_blocks_freezed: 25_freezed
 unlearn_data_id: 0
+unlearn_data_count: null
 data_path: synthetic_data/family_relationships.pt
 subsample_path: synthetic_data/subsample.pt
-batch_size: 1
-gradient_accumulation_steps: 1
+batch_size: 4
+# batch_size: 1
+gradient_accumulation_steps: 8
+# gradient_accumulation_steps: 1
 forget_loss: ga
 
 # save_dir: unlearning_checkpoint/${forget_loss}/${model_family}/${unlearn_data_id}

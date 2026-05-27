@@ -22,7 +22,8 @@ from freeze_layers import freeze_transformer_blocks
 # если print_trainable_parameters(model) = 0, значит, все слои заморожены
 def report_trainable_parameters(model):  # не работает, даже trainable_params выдает 0
     """
-    Prints the number of trainable parameters in the model.
+    Prints the number of trainable parameters in the model. 
+    Currently doesn't show correct info, shows zeros all the time 
     """
     trainable_params = 0
     all_param = 0
@@ -87,18 +88,22 @@ def main(cfg):
                 cfg.data_path, 
                 tokenizer=tokenizer, 
                 model_configs=model_cfg, 
-                max_length=500, # макс.длина послед-ти токенов для модели, остальное ОБРЕЗАЕТСЯ
+                max_length=64, # макс.длина послед-ти токенов для модели, остальное ОБРЕЗАЕТСЯ, для 1 qa-пары можно сделать 64
                 unlearn_data_id=shuffled_unlearn_data_id, 
                 question_key='question4', 
                 answer_key='answer4')
         else:
+            if cfg.get('unlearn_data_count') is not None:
+                selected_unlearn_ids = subsample[:int(cfg.unlearn_data_count)]
+            else:
+                selected_unlearn_ids = subsample
             # забывание сразу всего subsample из 55 фактов
             torch_format_dataset = FamilyForgetDataset(
                 cfg.data_path, 
                 tokenizer=tokenizer, 
                 model_configs=model_cfg, 
-                max_length=500, # этот max_length переопределит max_length в data_module
-                unlearn_data_id=subsample, 
+                max_length=64, # этот max_length переопределит max_length в data_module
+                unlearn_data_id=selected_unlearn_ids, 
                 question_key='question4', 
                 answer_key='answer4')
     elif "mquake" in cfg.data_path:
@@ -106,7 +111,7 @@ def main(cfg):
             cfg.data_path, 
             tokenizer=tokenizer, 
             model_configs=model_cfg, 
-            max_length=500, 
+            max_length=500, # to check
             unlearn_data_id=subsample, 
             question_key='question', 
             answer_key='answer')

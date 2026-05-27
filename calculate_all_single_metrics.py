@@ -43,11 +43,11 @@ for unlearn_data_id in range(0, 6):
             if (os.path.exists(f"{checkpoint_path}/relationships_correct.pt") and 
                 os.path.exists(f"{checkpoint_path}/biographies_correct.pt")):
                 
-                print(f"Обрабатываю: unlearn_data_id={unlearn_data_id}, {checkpoint}")
+                print(f"Обработка: unlearn_data_id={unlearn_data_id}, {checkpoint}")
                 
                 # Запускаем оригинальный скрипт, в его результате rec_acc.pt сохраняются в директории чекпоинтов с ответами моделей
                 cmd = [
-                    "python", "calculate_recall_and_acc.py",
+                    "python", "single_fact_recall_and_acc.py",
                     "--unlearn_data_id", str(unlearn_data_id),
                     "--input_dir", checkpoint_path
                 ]
