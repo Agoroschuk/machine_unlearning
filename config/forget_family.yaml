@@ -12,7 +12,7 @@ data_path: synthetic_data/family_relationships.pt
 subsample_path: synthetic_data/subsample.pt
 batch_size: 4
 # batch_size: 1
-gradient_accumulation_steps: 8
+gradient_accumulation_steps: 4
 # gradient_accumulation_steps: 1
 forget_loss: ga
 
