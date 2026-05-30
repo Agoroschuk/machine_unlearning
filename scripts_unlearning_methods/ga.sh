@@ -6,9 +6,9 @@
 # bash scripts_unlearning_methods/ga.sh gpt2_xl 0_dropped 0_freezed 0
 # multiple call
 # ga
-# bash scripts_unlearning_methods/ga.sh gpt2_xl 0_dropped 25_freezed -1 31
+# bash scripts_unlearning_methods/ga.sh gpt2_xl 0_dropped 0_freezed -1 31
 # ga + rt
-# bash scripts_unlearning_methods/ga.sh gpt2_xl 0_dropped 25_freezed -1 31 combined
+# bash scripts_unlearning_methods/ga.sh gpt2_xl 0_dropped 0_freezed -1 31 combined
 
 master_port=18765;
 # master_port=18764;

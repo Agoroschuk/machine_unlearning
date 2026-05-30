@@ -208,6 +208,7 @@ def main(cfg):
         eval_strategy = "steps",
         seed=cfg.seed,
         lr_scheduler_type="linear", # линейное уменьшение lr
+        remove_unused_columns=False
     )
     
     
