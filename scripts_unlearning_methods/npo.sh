@@ -4,21 +4,29 @@
 # single call
 # bash scripts_unlearning_methods/npo.sh gpt2_xl 0_dropped 25_freezed 1 # здесь важно подать model в том же виде, что и в declare -A
 # multiple call
-# bash scripts_unlearning_methods/npo.sh gpt2_xl 0_dropped 25_freezed -1 31
+# npo
+# bash scripts_unlearning_methods/npo.sh gpt2_xl 0_dropped 0_freezed -1 31
+# npo + rt
+# bash scripts_unlearning_methods/npo.sh gpt2_xl 0_dropped 0_freezed -1 31 combined
 
 model=$1
 percent_blocks_dropped=$2 
 percent_blocks_freezed=$3 # если передать 0_freezed, заморозки не будет, иначе будет указанный процент (учтено в forget.py)
 unlearn_data_id=$4
 unlearn_data_count=$5
+retain_mode=${6:-none}
 
 master_port=16704
 # devices="0,1"
 devices='0'
 
-# model_path=ft_model_checkpoint/ft_${model}
+
 model_path=/content/drive/MyDrive/Unlearning/miscellaneous/ft_model_checkpoint/ft_${model}/${percent_blocks_dropped}
 forget_loss=npo
+method_name=${forget_loss}
+
+if [ "${retain_mode}" != "none" ]; then method_name=${forget_loss}_rt
+fi
 
 # -n <=> 'non-empty string', fi = конец блока, в hydra попадет (через override) конкретное значение unlearn_data_count
 if [ "${unlearn_data_id}" = "-1" ] && [ -n "${unlearn_data_count}" ]; then
@@ -29,13 +37,14 @@ else
     extra_args=""
 fi
 
-save_path=/content/drive/MyDrive/Unlearning/miscellaneous/unlearning_checkpoint/${forget_loss}/${model}/${percent_blocks_dropped}/${percent_blocks_freezed}/${run_name}
+save_path=/content/drive/MyDrive/Unlearning/miscellaneous/unlearning_checkpoint/${method_name}/${model}/${percent_blocks_dropped}/${percent_blocks_freezed}/${run_name}
 mkdir -p $save_path
 
 
 # аргументы попадают в hydra объект cfg и затем в forget.py через main(cfg)
 CUDA_VISIBLE_DEVICES=${devices} torchrun --nproc_per_node=1 --master_port=$master_port forget.py \
     --config-name=forget_family.yaml \
+    retain_mode=${retain_mode} \
     model_family=${model} \
     unlearn_data_id=${unlearn_data_id} \
     forget_loss=${forget_loss} \

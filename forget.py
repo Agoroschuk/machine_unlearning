@@ -13,7 +13,14 @@ from pathlib import Path # замена os.path для большей читае
 from omegaconf import OmegaConf
 import numpy as np
 
-from data_module import FamilyForgetDataset, custom_data_collator, custom_data_collator_npo
+from data_module import (
+    FamilyForgetDataset, 
+    FamilyForgetRetainDataset,
+    custom_data_collator, 
+    custom_data_collator_npo,
+    custom_data_collator_forget_retain,
+    custom_data_collator_forget_retain_npo
+)
 from unlearn_trainer import CustomFamilyTrainerForgetting
 from utils import get_model_identifiers_from_yaml
 from freeze_layers import freeze_transformer_blocks
@@ -97,7 +104,7 @@ def main(cfg):
                 selected_unlearn_ids = subsample[:int(cfg.unlearn_data_count)]
             else:
                 selected_unlearn_ids = subsample
-            # забывание сразу всего subsample из 55 фактов
+            # забывание сразу нескольких фактов
             torch_format_dataset = FamilyForgetDataset(
                 cfg.data_path, 
                 tokenizer=tokenizer, 
@@ -106,16 +113,49 @@ def main(cfg):
                 unlearn_data_id=selected_unlearn_ids, 
                 question_key='question4', 
                 answer_key='answer4')
-    elif "mquake" in cfg.data_path:
-        torch_format_dataset = FamilyForgetDataset(
-            cfg.data_path, 
-            tokenizer=tokenizer, 
-            model_configs=model_cfg, 
-            max_length=500, # to check
-            unlearn_data_id=subsample, 
-            question_key='question', 
-            answer_key='answer')
+    
+    forget_dataset = torch_format_dataset
+
+    retain_mode = cfg.get('retain_mode', 'none')
+
+    if retain_mode == 'none':
+        torch_format_dataset = forget_dataset
+
+    elif retain_mode == 'combined':
+        forget_ids = np.asarray(forget_dataset.unlearn_data_id).astype(np.int32)
+        # full relationships dataset
+        all_ids = np.arange(len(forget_dataset.data)).astype(np.int32)
+        # retain_ids = np.setdiff1d(all_ids, forget_ids)
+        retain_ids = np.array(sorted(set(all_ids) - set(forget_ids)))
+
+        # если None, значит, использовать весь retain dataset
+        if cfg.get('retain_data_count') is not None:
+            retain_ids = retain_ids[: int(cfg.retain_data_count)]
+
+        if 'family' in cfg.data_path:
+            retain_max_length = 64
+            retain_question_key = 'question4'
+            retain_answer_key = 'answer4'
+        else:
+            raise ValueError(f"Unknown data_path format for retain dataset: {cfg.data_path}")
         
+        retain_dataset = FamilyForgetDataset(
+            cfg.data_path,
+            tokenizer=tokenizer,
+            model_configs=model_cfg,
+            max_length=retain_max_length,
+            unlearn_data_id=retain_ids,
+            question_key=retain_question_key,
+            answer_key=retain_answer_key
+        )
+
+        torch_format_dataset = FamilyForgetRetainDataset(
+            forget_dataset=forget_dataset,
+            retain_dataset=retain_dataset
+        )
+
+    else:
+        raise ValueError(f"Unknown retain_mode: {retain_mode}")
     
     if cfg.lr is None:
         if cfg.forget_loss == "ga":
@@ -135,8 +175,7 @@ def main(cfg):
     # чтобы обновлять веса каждые gradient_accumulation_steps, а не после каждого батча (градиенты, само собой, накапливаются после каждого батча)
     gradient_accumulation_steps = cfg.gradient_accumulation_steps
 
-    # len(torch_format_dataset) = число примеров в забываемом датасете (1 у авторов)
-    # У меня steps_per_epoch = 1, что практически отключает разогрев в обучении, но наверное есть смысл делать steps_per_epoch > 1, 
+    # steps_per_epoch = 1 практически отключает разогрев в обучении, но наверное есть смысл делать steps_per_epoch > 1, 
     # т.к. это определит число шагов в warmup (эвристика), // = целочисленное деление
     steps_per_epoch = len(torch_format_dataset)//(batch_size*gradient_accumulation_steps*num_devices)
     # max_steps тоже эвристика
@@ -228,6 +267,18 @@ def main(cfg):
     if model_cfg["gradient_checkpointing"] == "true": # стратегия сохранения памяти и не сохранения лишних градиентов в случае больших моделей (вместо сохранения пересчитывается, когда нужно)
         model.gradient_checkpointing_enable()
 
+    # bool value
+    use_retain = cfg.get('retain_mode', 'none') != 'none'
+
+    if use_retain and cfg.forget_loss == 'npo':
+        data_collator = custom_data_collator_forget_retain_npo
+    elif use_retain:
+        data_collator = custom_data_collator_forget_retain
+    elif cfg.forget_loss == 'npo':
+        data_collator = custom_data_collator_npo
+    else:
+        data_collator = custom_data_collator
+
     # кастомный тренер (исполнитель обучения), он только для ga и npo
     trainer = CustomFamilyTrainerForgetting(
         # здесь все передаваемые аргументы = *kwargs (именованные)
@@ -237,8 +288,9 @@ def main(cfg):
         train_dataset=torch_format_dataset, # для 1 qa-пары, если unlearn_data_id != -1
         compute_metrics=None,
         args=training_args, # здесь о том, как нужно обучать
-        data_collator=custom_data_collator if not cfg.forget_loss == "npo" else custom_data_collator_npo,
+        data_collator=data_collator,
         # дальше именованные аргументы *kwargs (т.к. неизвестны для Trainer)
+        retain_loss_weight=cfg.get('retain_loss_weight', 1.0),
         forget_loss = cfg.forget_loss, # метод забывания ga/npo
         save_step_pattern=cfg.save_step_pattern,
         save_dir=cfg.save_dir
@@ -250,6 +302,12 @@ def main(cfg):
     
     # получение правдоподобия ref (исходной) модели на забываемой последовательности
     if cfg.forget_loss == "npo":
+        npo_forget_dataset = (
+            trainer.train_dataset.forget_dataset 
+            if cfg.get('retain_mode', 'none') != 'none'
+            else trainer.train_dataset
+        )
+
         ref_seq_logps_dir = f"{cfg.save_dir}/ref_seq_logps.pt"
         if not os.path.exists(ref_seq_logps_dir):
             ref_model = AutoModelForCausalLM.from_pretrained(
@@ -265,8 +323,10 @@ def main(cfg):
             with torch.no_grad():
                 ref_seq_logps_list = []
                 # для каждой пары вопрос-ответ, преобразованный к виду, доступному llm (train_dataset)
-                for data_id in tqdm(range(len(trainer.train_dataset))):
-                    inputs = trainer.train_dataset[data_id]
+                for data_id in tqdm(range(len(npo_forget_dataset))):
+                # for data_id in tqdm(range(len(trainer.train_dataset))):
+                    # inputs = trainer.train_dataset[data_id]
+                    inputs = npo_forget_dataset[data_id]
                     input_ids, labels, attention_mask = inputs[0], inputs[1], inputs[2]
                     
                     input_ids, labels, attention_mask = input_ids.unsqueeze(0).to(local_rank), labels.unsqueeze(0).to(local_rank), attention_mask.unsqueeze(0).to(local_rank)
@@ -289,8 +349,8 @@ def main(cfg):
             # torch.save(что сохранять, куда сохранять)
             # torch.save(outputs_f_ref_logits, outputs_f_ref_dir)
             torch.save(ref_seq_logps, ref_seq_logps_dir)
-        # trainer.train_dataset.outputs_f_ref_logits = torch.load(outputs_f_ref_dir)
-        trainer.train_dataset.ref_seq_logps = torch.load(ref_seq_logps_dir)
+        # trainer.train_dataset.ref_seq_logps = torch.load(ref_seq_logps_dir)
+        npo_forget_dataset.ref_seq_logps = torch.load(ref_seq_logps_dir)
     
     # запуск обучения, train() наследуется от Trainer, вызывает кастомные evaluate(), compute_loss() 
     trainer.train()

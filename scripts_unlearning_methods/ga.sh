@@ -5,8 +5,10 @@
 # single call
 # bash scripts_unlearning_methods/ga.sh gpt2_xl 0_dropped 0_freezed 0
 # multiple call
+# ga
 # bash scripts_unlearning_methods/ga.sh gpt2_xl 0_dropped 25_freezed -1 31
-
+# ga + rt
+# bash scripts_unlearning_methods/ga.sh gpt2_xl 0_dropped 25_freezed -1 31 combined
 
 master_port=18765;
 # master_port=18764;
@@ -17,9 +19,15 @@ percent_blocks_dropped=$2
 percent_blocks_freezed=$3
 unlearn_data_id=$4
 unlearn_data_count=$5
+retain_mode=${6:-none}
 
 model_path=/content/drive/MyDrive/Unlearning/miscellaneous/ft_model_checkpoint/ft_${model}/${percent_blocks_dropped}
 forget_loss=ga
+
+method_name=${forget_loss}
+
+if [ "${retain_mode}" != "none" ]; then method_name=${forget_loss}_rt
+fi
 
 # Забывание запускается либо отдельно для одного unlearn_data_id, либо сразу для нескольких unlearn_data_id
 if [ "${unlearn_data_id}" = "-1" ] && [ -n "${unlearn_data_count}" ]; then
@@ -30,7 +38,7 @@ else
     extra_args=""
 fi
 
-save_path=/content/drive/MyDrive/Unlearning/miscellaneous/unlearning_checkpoint/${forget_loss}/${model}/${percent_blocks_dropped}/${percent_blocks_freezed}/${run_name}
+save_path=/content/drive/MyDrive/Unlearning/miscellaneous/unlearning_checkpoint/${method_name}/${model}/${percent_blocks_dropped}/${percent_blocks_freezed}/${run_name}
 mkdir -p $save_path
 
 # torchrun - launcher для распределенного обучения PyTorch
@@ -38,6 +46,7 @@ mkdir -p $save_path
 # Переопределяет "forget" на "forget_family.yaml", используется hydra, далее часть аргументов меняется через override 
 CUDA_VISIBLE_DEVICES=${devices} torchrun --nproc_per_node=1 --master_port=$master_port forget.py \
     --config-name=forget_family.yaml \
+    retain_mode=${retain_mode} \
     model_family=${model} \
     unlearn_data_id=${unlearn_data_id} \
     forget_loss=${forget_loss} \

@@ -9,8 +9,6 @@ llama2-7b:
   ga_num_epochs: 16
   npo_lr: "2e-5"
   npo_num_epochs: 16
-  whp_alpha_list: "0.5 1.0 5.0 10.0 100.0 1000.0"
-  tv_alpha_list: "0.2 0.5 1.0 5.0 10.0"
   reinforce_lr: "1e-5"
 llama3-8b:
   model_id: "meta-llama/Meta-Llama-3-8B"
@@ -23,8 +21,6 @@ llama3-8b:
   ga_num_epochs: 16
   npo_lr: "2e-5"
   npo_num_epochs: 16
-  whp_alpha_list: "0.5 1.0 5.0 10.0 100.0 1000.0"
-  tv_alpha_list: "0.2 0.5 1.0 5.0 10.0"
   reinforce_lr: "1e-5"
 gpt2_xl:
   model_id: "openai-community/gpt2-xl"
@@ -38,8 +34,6 @@ gpt2_xl:
   # npo_lr: "4e-5"
   npo_lr: "2e-5"
   npo_num_epochs: 16
-  whp_alpha_list: "0.5 1.0 5.0 10.0 100.0 1000.0"
-  tv_alpha_list: "0.2 1.0 5.0 10.0 30.0 60.0 80.0"
   reinforce_lr: "2e-5"
 phi:
   model_id: "microsoft/phi-1_5"
@@ -52,6 +46,4 @@ phi:
   ga_num_epochs: 16
   npo_lr: "4e-5"
   npo_num_epochs: 16
-  whp_alpha_list: "0.5 1.0 5.0 10.0 100.0 1000.0"
-  tv_alpha_list: "0.2 0.5 1.0 5.0 10.0"
   reinforce_lr: "2e-5"

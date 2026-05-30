@@ -91,7 +91,9 @@ class FamilyForgetDataset(Dataset):
     def __len__(self):
         # если бы world_size = 2 был, один и тот же unlearn_data_id бы раздвоился, чтобы далее ... (дописать)
         return len(self.unlearn_data_id) * self.world_size
-
+    
+    # len, getitem, init методы должны быть согласно контракту torch.utils.data.Dataset
+    # Dataloader передает в __getitem__ не батч целиком, а его примеры по одному, а custom_data_collator склеивает эти примеры воедино
     def __getitem__(self, idx):
         data_id = int(self.unlearn_data_id[int(idx/self.world_size)])
         pad_input_ids_list = []
@@ -146,9 +148,31 @@ class FamilyForgetDataset(Dataset):
 # Если unlearn_data_id = [267], то датасет будет возвращать только данные для факта #267
 # "Кто отец John?" → "Mike"
 
+# no tokenizing, only mixing forget + retain sets
+class FamilyForgetRetainDataset(Dataset):
+    def __init__(self, forget_dataset, retain_dataset):
+        super(FamilyForgetRetainDataset, self).__init__()
+        self.forget_dataset = forget_dataset
+        self.retain_dataset = retain_dataset
+    
+    def __len__(self):
+        return len(self.forget_dataset)
+    
+    # % - остаток от деления, повторы retain idx возможны
+    def __getitem__(self, idx):
+        # new random pair retain idx for forget idx
+        retain_idx = (
+            idx + torch.randint(0, len(self.retain_dataset), (1,)).item()
+        ) % len(self.retain_dataset)
+
+        return {
+            "forget": self.forget_dataset[idx],
+            "retain": self.retain_dataset[retain_idx],
+        }
+
 # samples = список элементов, которые вернул FamilyForgetDataset.__getitem__
 def custom_data_collator(samples):
-    input_ids = [s[0] for s in samples] # просто объединяем, например, input_ids для всех примеров 1 и того же факта
+    input_ids = [s[0] for s in samples] # просто объединяем, например, input_ids для всех примеров
     labels = [s[1] for s in samples]
     attention_mask = [s[2] for s in samples]
     # функция возвращает три 2-мерных тензора [batch_size, seq_len]
@@ -165,3 +189,19 @@ def custom_data_collator_npo(samples):
         torch.stack(attention_mask), 
         torch.stack(ref_seq_logps)
     )
+
+def custom_data_collator_forget_retain(samples):
+    forget_batch = custom_data_collator([s["forget"] for s in samples])
+    retain_batch = custom_data_collator([s["retain"] for s in samples])
+    return {
+        "forget": forget_batch,
+        "retain": retain_batch
+    }
+
+def custom_data_collator_forget_retain_npo(samples):
+    forget_batch = custom_data_collator_npo([s["forget"] for s in samples])
+    retain_batch = custom_data_collator([s["retain"] for s in samples])
+    return {
+        "forget": forget_batch,
+        "retain": retain_batch
+    }

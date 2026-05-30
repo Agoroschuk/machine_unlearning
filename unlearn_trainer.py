@@ -61,7 +61,8 @@ class CustomFamilyTrainerForgetting(Trainer):
     e_prepare_deepspeed() → вспомогательный метод для настройки DeepSpeed
     """
     def __init__(self, *args, **kwargs):
-        # извлечение кастомных аргументов
+        # извлечение кастомных аргументов + удаление их из kwargs
+        self.retain_loss_weight = kwargs.pop("retain_loss_weight", 1.0)
         self.loss_type = kwargs.pop("forget_loss")
         self.save_dir = kwargs.pop("save_dir")
         self.save_step_pattern = kwargs.pop("save_step_pattern")
@@ -99,9 +100,14 @@ class CustomFamilyTrainerForgetting(Trainer):
     # HF Trainer заберет мой кастомный лосс, т.к. CustomFamilyTrainerForgetting наследуется от Trainer
     # hf subclass for custom losses etc: https://huggingface.co/docs/transformers/en/trainer_customize + more details in custom_losses.ipynb in colab
     def compute_loss(self, model, inputs, return_outputs=False):
+
+        has_retain = isinstance(inputs, dict) and "retain" in inputs
+
+        forget_inputs = inputs["forget"] if has_retain else inputs
+        retain_inputs = inputs["retain"] if has_retain else None
+
         # стандартный сe loss, хотим, чтобы каждый новый токен был наименее правдоподобен (софтмакс по всему размеру словаря в tokenizer)
         if self.loss_type == "ga":
-            forget_inputs = inputs
             # это input_ids, labels, attention_mask только по токенам qa-пары (единственных поданных в модель данных то есть)
             input_ids, labels, attention_mask = forget_inputs
             outputs = model(
@@ -123,7 +129,6 @@ class CustomFamilyTrainerForgetting(Trainer):
             # в seq_len входят как токены вопроса, так и токены сгенерированного ответа,
             # при расчете loss токены вопроса не учитывают (вопрос = контекст)
 
-            forget_inputs = inputs
             input_ids, labels, attention_mask, ref_seq_logps = forget_inputs  # ref_seq_logps придут от data_module.py, forget.py
             # важно не передавать labels, чтобы не посчитался дефолтный loss, если они переданы
             # строка ниже же обеспечивает только forward pass для получения предсказаний и возвращает только logits предсказаний
@@ -133,6 +138,15 @@ class CustomFamilyTrainerForgetting(Trainer):
             neg_log_ratio = ref_seq_logps - cur_seq_logps
             # mean() для усреднения по элементам батча [batch_size] (это мат. ож. из оригинальной статьи)
             loss = -(2.0 / self.beta) * F.logsigmoid(self.beta * neg_log_ratio).mean()
+        
+        if retain_inputs is not None:
+            retain_input_ids, retain_labels, retain_attention_mask = retain_inputs
+            retain_outputs = model(
+                retain_input_ids, labels=retain_labels, attention_mask=retain_attention_mask
+            )
+            retain_loss = retain_outputs.loss
+            # итоговый комбинированный loss
+            loss = loss + self.retain_loss_weight * retain_loss
 
         return (loss, outputs) if return_outputs else loss
 
