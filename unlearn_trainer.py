@@ -263,7 +263,7 @@ class CustomFamilyTrainerForgetting(Trainer):
         elif self.save_step_pattern == "epoch_between_4_8":
             curr_step = self.state.global_step
             # сохранение модели на этих шагах
-            if curr_step not in [5, 6, 7]:
+            if curr_step not in [21, 25, 31]:
                 return
             # сохранение
             curr_save_dir = os.path.join(self.save_dir, f"checkpoint-{curr_step}")

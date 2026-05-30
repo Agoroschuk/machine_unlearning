@@ -62,7 +62,8 @@ model_id="${model_to_modelid[$model]}" # доступ к эл-ту ассоц.м
 
 # для каждой поддиректории с чекпоинтами (для каждого чекпоинта посчитать с пом.vllm _responses.pt, _correct.pt)
 # /*/ <=> поиск в save_path (/) директорий (/) с любым названием (*)
-for cur_save_dir in ${save_path}/*/; do
+# for cur_save_dir in ${save_path}/*/; do
+for cur_save_dir in ${save_path}/checkpoint-*/; do
     # оценка на 1 из 4 моделей с пом. vllm_eval.py
     CUDA_VISIBLE_DEVICES=${devices} python vllm_eval.py --curr_save_dir ${cur_save_dir} --model_family $model --clean_cache false; 
     

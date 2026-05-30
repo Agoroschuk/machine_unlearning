@@ -6,7 +6,7 @@ import numpy as np
 import torch
 
 
-# python multiple_fact_recall_and_acc.py --method npo --model gpt2_xl --percent_blocks_dropped 0 --percent_blocks_freezed 0 --unlearn_data_count 31
+# python multiple_fact_recall_and_acc.py --method npo_rt --model gpt2_xl --percent_blocks_dropped 0 --percent_blocks_freezed 0 --unlearn_data_count 31
 parser = argparse.ArgumentParser(description="calculate recall and accuracy for multiple forgotten facts")
 parser.add_argument("--method", type=str, default="npo")
 parser.add_argument("--model", type=str, default="gpt2_xl")
