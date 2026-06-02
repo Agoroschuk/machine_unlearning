@@ -6,14 +6,9 @@ import time
 import shutil
 import copy
 import numpy as np
-
 import deepspeed
-from transformers.integrations.deepspeed import (
-    deepspeed_init,
-    deepspeed_load_checkpoint,
-    is_deepspeed_available,
-)
 
+from weight_change_timer import WeightChangeTimerCallback
 
 class CustomTrainer(Trainer):  # должен подходить для обычного обучения и finetuning
     def compute_loss(self, model, inputs, return_outputs=False):
@@ -66,12 +61,18 @@ class CustomFamilyTrainerForgetting(Trainer):
         self.loss_type = kwargs.pop("forget_loss")
         self.save_dir = kwargs.pop("save_dir")
         self.save_step_pattern = kwargs.pop("save_step_pattern")
+        self.weight_change_timing_file = kwargs.pop("weight_change_timing_file", None)
+        
         self.last_epoch = 0
         # наследование от родительского класса нужно, чтобы все параметры CustomFamilyTrainerForgetting инициализировались
         # Чтобы работало то, что наследуется от Trainer (а по сути это все, кроме кастомных forget_loss, save_dir, save_step_pattern)
         # передача оставшихся аргументов
         super(CustomFamilyTrainerForgetting, self).__init__(*args, **kwargs)
 
+        if self.weight_change_timing_file is not None:
+            self.add_callback(
+                WeightChangeTimerCallback(self.weight_change_timing_file)
+            )
         if self.loss_type == "npo":
             self.beta = 0.1
 

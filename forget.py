@@ -10,7 +10,6 @@ import os
 import gc
 from tqdm import tqdm
 from pathlib import Path # замена os.path для большей читаемости и удобства
-from omegaconf import OmegaConf
 import numpy as np
 
 from data_module import (
@@ -280,6 +279,7 @@ def main(cfg):
     else:
         data_collator = custom_data_collator
 
+    weight_change_timing_file = os.path.join(cfg.save_dir, "weight_change_seconds.tmp")
     # кастомный тренер (исполнитель обучения), он только для ga и npo
     trainer = CustomFamilyTrainerForgetting(
         # здесь все передаваемые аргументы = *kwargs (именованные)
@@ -294,7 +294,8 @@ def main(cfg):
         retain_loss_weight=cfg.get('retain_loss_weight', 1.0),
         forget_loss = cfg.forget_loss, # метод забывания ga/npo
         save_step_pattern=cfg.save_step_pattern,
-        save_dir=cfg.save_dir
+        save_dir=cfg.save_dir,
+        weight_change_timing_file=weight_change_timing_file
     )
     # отключение мех-ма кэширования (KV-cache) в мех-ме attention
     # А что в исследовании есть инференс? И есть ли он тут в том понимании, где рекомендуется делать True? Проверить
