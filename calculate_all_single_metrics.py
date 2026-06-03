@@ -14,8 +14,8 @@ percent_blocks_dropped = 0
 # percent_blocks_dropped = 25
 percent_blocks_freezed = 0
 # percent_blocks_freezed = 25
-base_input_dir = f"/content/drive/MyDrive/Unlearning/miscellaneous/unlearning_checkpoint/{method}/{model}/{percent_blocks_dropped}_dropped/{percent_blocks_freezed}_freezed"
-base_output_dir = f"/content/drive/MyDrive/Unlearning/miscellaneous/results/{method}/{model}/{percent_blocks_dropped}_dropped/{percent_blocks_freezed}_freezed"
+base_input_dir = f"/content/drive/MyDrive/Unlearning/unlearning_checkpoint/{method}/{model}/{percent_blocks_dropped}_dropped/{percent_blocks_freezed}_freezed"
+base_output_dir = f"/content/drive/MyDrive/Unlearning/results/{method}/{model}/{percent_blocks_dropped}_dropped/{percent_blocks_freezed}_freezed"
 print('base_input_dir', base_input_dir)
 print('base_output_dir', base_output_dir)
 

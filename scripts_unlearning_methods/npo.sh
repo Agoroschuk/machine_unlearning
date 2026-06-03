@@ -1,4 +1,5 @@
 #!/bin/bash
+# Дописать логику под weight_change_timer.py
 
 # bash scripts_unlearning_methods/${unlearning_methods}.sh $target_model $unlearn_target_data_id
 # single call
@@ -21,7 +22,7 @@ master_port=16704
 devices='0'
 
 
-model_path=/content/drive/MyDrive/Unlearning/miscellaneous/ft_model_checkpoint/ft_${model}/${percent_blocks_dropped}
+model_path=/content/drive/MyDrive/Unlearning/ft_model_checkpoint/ft_${model}/${percent_blocks_dropped}
 forget_loss=npo
 method_name=${forget_loss}
 
@@ -37,7 +38,7 @@ else
     extra_args=""
 fi
 
-save_path=/content/drive/MyDrive/Unlearning/miscellaneous/unlearning_checkpoint/${method_name}/${model}/${percent_blocks_dropped}/${percent_blocks_freezed}/${run_name}
+save_path=/content/drive/MyDrive/Unlearning/unlearning_checkpoint/${method_name}/${model}/${percent_blocks_dropped}/${percent_blocks_freezed}/${run_name}
 mkdir -p $save_path
 
 

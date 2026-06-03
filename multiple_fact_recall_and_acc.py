@@ -13,8 +13,8 @@ parser.add_argument("--model", type=str, default="gpt2_xl")
 parser.add_argument("--percent_blocks_dropped", type=int, default=0)
 parser.add_argument("--percent_blocks_freezed", type=int, default=25)
 parser.add_argument("--unlearn_data_count", type=int, default=31)
-parser.add_argument("--base_input_dir", type=str, default="/content/drive/MyDrive/Unlearning/miscellaneous/unlearning_checkpoint")
-parser.add_argument("--base_output_dir", type=str, default="/content/drive/MyDrive/Unlearning/miscellaneous/results")
+parser.add_argument("--base_input_dir", type=str, default="/content/drive/MyDrive/Unlearning/unlearning_checkpoint")
+parser.add_argument("--base_output_dir", type=str, default="/content/drive/MyDrive/Unlearning/results")
 args = parser.parse_args()
 
 

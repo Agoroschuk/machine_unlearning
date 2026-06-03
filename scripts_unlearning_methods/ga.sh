@@ -20,7 +20,7 @@ unlearn_data_id=$4
 unlearn_data_count=$5
 retain_mode=${6:-none}
 
-model_path=/content/drive/MyDrive/Unlearning/miscellaneous/ft_model_checkpoint/ft_${model}/${percent_blocks_dropped}
+model_path=/content/drive/MyDrive/Unlearning/ft_model_checkpoint/ft_${model}/${percent_blocks_dropped}
 forget_loss=ga
 
 method_name=${forget_loss}
@@ -37,7 +37,7 @@ else
     extra_args=""
 fi
 
-save_path=/content/drive/MyDrive/Unlearning/miscellaneous/unlearning_checkpoint/${method_name}/${model}/${percent_blocks_dropped}/${percent_blocks_freezed}/${run_name}
+save_path=/content/drive/MyDrive/Unlearning/unlearning_checkpoint/${method_name}/${model}/${percent_blocks_dropped}/${percent_blocks_freezed}/${run_name}
 mkdir -p $save_path
 
 timing_file=${save_path}/runtime_seconds.tsv
