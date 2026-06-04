@@ -41,8 +41,11 @@ fi
 save_path=/content/drive/MyDrive/Unlearning/unlearning_checkpoint/${method_name}/${model}/${percent_blocks_dropped}/${percent_blocks_freezed}/${run_name}
 mkdir -p $save_path
 
+timing_file=${save_path}/runtime_seconds.tsv
+echo -e "stage\tseconds" > ${timing_file}
 
 # аргументы попадают в hydra объект cfg и затем в forget.py через main(cfg)
+train_start_time=$(date +%s)
 CUDA_VISIBLE_DEVICES=${devices} torchrun --nproc_per_node=1 --master_port=$master_port forget.py \
     --config-name=forget_family.yaml \
     retain_mode=${retain_mode} \
@@ -53,6 +56,16 @@ CUDA_VISIBLE_DEVICES=${devices} torchrun --nproc_per_node=1 --master_port=$maste
     percent_blocks_dropped=${percent_blocks_dropped} \
     percent_blocks_freezed=${percent_blocks_freezed} \
     save_dir=${save_path} ${extra_args};
+
+train_end_time=$(date +%s)
+echo -e "forget\t$((train_end_time - train_start_time))" >> ${timing_file}
+
+weight_change_file=${save_path}/weight_change_seconds.tmp
+if [ -f "${weight_change_file}" ]; then
+    echo -e "weight change\t$(cat "${weight_change_file}")" >> "${timing_file}"
+else
+    echo -e "weight change\tNA" >> "${timing_file}"
+fi
  
 declare -A model_to_modelid=( ["llama2-7b"]="meta-llama/Llama-2-7b" ["llama3-8b"]="meta-llama/Meta-Llama-3-8B" ["gpt2_xl"]="openai-community/gpt2-xl" ["phi"]="microsoft/phi-1_5")
 model_id="${model_to_modelid[$model]}"
