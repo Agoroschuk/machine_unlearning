@@ -8,7 +8,7 @@
 # npo
 # bash scripts_unlearning_methods/npo.sh gpt2_xl 0_dropped 0_freezed -1 31
 # npo + rt
-# bash scripts_unlearning_methods/npo.sh gpt2_xl 0_dropped 25_freezed -1 31 combined
+# bash scripts_unlearning_methods/npo.sh gpt2_xl 0_dropped 0_freezed -1 31 combined
 
 model=$1
 percent_blocks_dropped=$2 
@@ -31,7 +31,7 @@ fi
 
 # -n <=> 'non-empty string', fi = конец блока, в hydra попадет (через override) конкретное значение unlearn_data_count
 if [ "${unlearn_data_id}" = "-1" ] && [ -n "${unlearn_data_count}" ]; then
-    run_name=first_${unlearn_data_count}_for_time_only
+    run_name=first_${unlearn_data_count}
     extra_args="unlearn_data_count=${unlearn_data_count}"
 else
     run_name=${unlearn_data_id}
