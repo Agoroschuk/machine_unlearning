@@ -1,29 +1,39 @@
 import os
 import subprocess
-import shutil
 from pathlib import Path
-import numpy as np
+import argparse
 
-# python calculate_all_metrics.py
-# в идеале через bash скрипт передавать method, model, percent_blocks_dropped
-# method = 'ga'
-method = 'npo'
-model = 'gpt2_xl'
-# model = 'phi'
-percent_blocks_dropped = 0
-# percent_blocks_dropped = 25
-percent_blocks_freezed = 0
-# percent_blocks_freezed = 25
-base_input_dir = f"/content/drive/MyDrive/Unlearning/unlearning_checkpoint/{method}/{model}/{percent_blocks_dropped}_dropped/{percent_blocks_freezed}_freezed"
-base_output_dir = f"/content/drive/MyDrive/Unlearning/results/{method}/{model}/{percent_blocks_dropped}_dropped/{percent_blocks_freezed}_freezed"
-print('base_input_dir', base_input_dir)
-print('base_output_dir', base_output_dir)
+# python calculate_all_single_metrics.py --method npo --model gpt2_xl --percent_blocks_dropped 0 --percent_blocks_freezed 0 --unlearn_data_count 6
+parser = argparse.ArgumentParser(description="calculate extended info for single forgotten facts")
+parser.add_argument("--method", type=str, default="npo")
+parser.add_argument("--model", type=str, default="gpt2_xl")
+parser.add_argument("--percent_blocks_dropped", type=int, default=0)
+parser.add_argument("--percent_blocks_freezed", type=int, default=0)
+parser.add_argument("--unlearn_data_count", type=int, default=21)
+parser.add_argument("--base_input_dir", type=str, default="/content/drive/MyDrive/Unlearning/unlearning_checkpoint")
+parser.add_argument("--base_output_dir", type=str, default="/content/drive/MyDrive/Unlearning/results")
+args = parser.parse_args()
 
-# Создаем базовую выходную директорию
+base_input_dir = os.path.join(
+    args.base_input_dir,
+    args.method,
+    args.model,
+    f"{args.percent_blocks_dropped}_dropped",
+    f"{args.percent_blocks_freezed}_freezed"
+)
+
+base_output_dir = os.path.join(
+    args.base_output_dir,
+    args.method,
+    args.model,
+    f"{args.percent_blocks_dropped}_dropped",
+    f"{args.percent_blocks_freezed}_freezed",
+)
+
 Path(base_output_dir).mkdir(parents=True, exist_ok=True)
 
 # Обходим все unlearn_data_id
-for unlearn_data_id in range(0, 6):
+for unlearn_data_id in range(args.unlearn_data_count):
     # Формируем путь к входной директории
     input_dir = f"{base_input_dir}/{unlearn_data_id}"
     
@@ -40,40 +50,39 @@ for unlearn_data_id in range(0, 6):
             checkpoint_path = os.path.join(input_dir, checkpoint)
             
             # Проверяем наличие необходимых файлов
-            if (os.path.exists(f"{checkpoint_path}/relationships_correct.pt") and 
-                os.path.exists(f"{checkpoint_path}/biographies_correct.pt")):
-                
-                print(f"Обработка: unlearn_data_id={unlearn_data_id}, {checkpoint}")
-                
-                # Запускаем оригинальный скрипт, в его результате rec_acc.pt сохраняются в директории чекпоинтов с ответами моделей
-                cmd = [
-                    "python", "single_fact_recall_and_acc.py",
-                    "--unlearn_data_id", str(unlearn_data_id),
-                    "--input_dir", checkpoint_path
-                ]
-                
-                result = subprocess.run(cmd, capture_output=True, text=True)
-                
-                if result.returncode == 0:
-                    # Создаем целевую директорию
-                    target_dir = f"{base_output_dir}/{unlearn_data_id}/{checkpoint}"
-                    Path(target_dir).mkdir(parents=True, exist_ok=True)
-                    
-                    # Перемещаем результат в целевую директорию, т.к. сначала rec_acc.pt лежит в папке с чекпоинтами
-                    source_file = f"{checkpoint_path}/rec_acc.pt"
-                    # if os.path.exists(source_file):
-                    if os.path.exists(source_file) and not os.path.exists(f"{target_dir}/rec_acc.pt"):
-                        shutil.copy2(source_file, f"{target_dir}/rec_acc.pt")
-                        print(f"Результат сохранен в: {target_dir}/rec_acc.pt")
-                        os.remove(source_file)
-                    else:
-                        # удаление на случай, что файл был создан ранее
-                        os.remove(source_file)
-                        print(f"Файл результатов не создан или уже создан ранее: {source_file}")
-                else:
-                    print(f"Ошибка при обработке {checkpoint_path}:")
-                    print(result.stderr)
-            else:
+            if not (
+                os.path.exists(f"{checkpoint_path}/relationships_correct.pt")
+                and os.path.exists(f"{checkpoint_path}/biographies_correct.pt")
+            ):
                 print(f"Пропускаю {checkpoint_path} - отсутствуют необходимые файлы")
+                continue # переход к следующему чекпоинту
+
+            print(f"Обработка: unlearn_data_id={unlearn_data_id}, {checkpoint}")
+            
+            target_dir = f"{base_output_dir}/{unlearn_data_id}/{checkpoint}"
+            Path(target_dir).mkdir(parents=True, exist_ok=True)
+
+            target_file = f"{target_dir}/rec_acc_extended.pt"
+            if os.path.exists(target_file):
+                print(f"Пропускаю: файл уже существует: {target_file}")
+                continue
+            # Сохранение rec_acc.pt, rec_acc_extended.pt
+            cmd = [
+                "python", "single_fact_recall_and_acc.py",
+                "--unlearn_data_id", str(unlearn_data_id),
+                "--input_dir", checkpoint_path,
+                "--output_dir", target_dir
+            ]
+            # чтобы вызвать single_fact_recall_and_acc.py
+            result = subprocess.run(cmd, capture_output=True, text=True)
+                
+            if result.returncode == 0:
+                if result.stdout:
+                    print(result.stdout)
+                print(f"Расширенная информация сохранена в: {target_file}")
+            else:
+                print(f"Ошибка при обработке {checkpoint_path}:")
+                print(result.stderr)
+
 
 print("Обработка завершена!")

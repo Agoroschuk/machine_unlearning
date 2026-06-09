@@ -1,6 +1,7 @@
 import argparse
 import torch
 import numpy as np
+import os
 
 
 from utils_data_building import (
@@ -20,8 +21,10 @@ from utils_metric import (
 parser = argparse.ArgumentParser(description='calculate the recall and accuracy')
 parser.add_argument('--unlearn_data_id', type=int, default=None, help="id of the fact to unlearn")
 parser.add_argument('--input_dir', type=str, default=None, help="directory that saves the retained knowledge base")
-# в объект args кладется unlearn_data_id и input_dir
+parser.add_argument('--output_dir', type=str, default=None, help="directory to save metrics")
 args = parser.parse_args()
+
+os.makedirs(args.output_dir, exist_ok=True)
 
 # 400 relationships 
 # (69, 67), father, Sloane Lee, <utils_data_building.Person object at 0x7e13e265ea80>: 'age', 'birthplace', 'children', 'father', 'gender', 'generation', 'husband', 'if_build', 'job', 'mother', 'name', 'wife'
@@ -61,7 +64,7 @@ unlearn_ind = 1 - rel_ind
 bio_ind = torch.load(f"{args.input_dir}/biographies_correct.pt", weights_only=False)
 
 # в каждом массиве набор метрик от разных minimal_set для оценки забывания shuffled_unlearn_data_id
-# (так как min_set не единственно, максимум = 17 таких множеств согласно статье) 
+# (так как min_set не единственно, максимум = 22 таких множеств я находила
 precision_list, recall_list, accuracy_list, minimal_unlearn_list = get_valid_unlearn_general(
     shuffled_unlearn_data_id, 
     edge_list, 
@@ -86,13 +89,30 @@ num_rel = len(rel_ind) # 400
 num_bio = len(bio_ind) # 300
 # Берем то мин.мн-во для забывания, которое дало лучший recall и считаем его длину
 size_mul = len(list(minimal_unlearn_list)[argmax])
-# чисто идейно не очень понятно, зачем нужен смешанный accuracy
 acc_all = ((acc_bio * num_bio) + accuracy_list[argmax] * ( num_rel - size_mul)) / (num_bio + num_rel - size_mul)
 print(("recall", "accuracy of relationships", "accuracy of biographies", "accuracy of all knowledge base"))
 print((rec, acc_rel, acc_bio, acc_all))
 
-# Сохранение нужно продумать по папочкам (метод/модель/id данных/чекпоинт) и сохранять на google drive в каком-то формате, в котором будут результаты
-# ('recall', 'accuracy of relationships', 'accuracy of biographies', 'accuracy of all knowledge base')
-# (0.75, 0.25, 0.023333333333333334, 0.15229885057471265)
-# надо добавить метрику success-du и сохранение ее + проверку на существование rec, acc_rel, acc_bio, acc_all в input_dir, чтобы не перезаписывать файлы
-torch.save((rec, acc_rel, acc_bio, acc_all), f"{args.input_dir}/rec_acc.pt")
+selected_minimal_unlearn_set = set(minimal_unlearn_list[argmax])
+# torch.save((rec, acc_rel, acc_bio, acc_all), f"{args.input_dir}/rec_acc.pt")
+torch.save(
+    {
+        "rec": float(rec),
+        "acc_rel": float(acc_rel),
+        "acc_bio": float(acc_bio),
+        "acc_all": float(acc_all),
+        "input_unlearn_data_id": int(args.unlearn_data_id),
+        "shuffled_unlearn_data_id": int(shuffled_unlearn_data_id),
+        "argmax": int(argmax),
+        "selected_minimal_unlearn_set": selected_minimal_unlearn_set,
+        "selected_minimal_unlearn_set_size": int(size_mul),
+        "precision_list": [float(x) for x in precision_list],
+        "recall_list": [float(x) for x in recall_list],
+        "accuracy_list": [float(x) for x in accuracy_list],
+        "all_minimal_unlearn_sets": [
+            sorted(int(x) for x in minimal_set)
+            for minimal_set in minimal_unlearn_list
+        ],
+    },
+    f"{args.output_dir}/rec_acc_extended.pt",
+)
