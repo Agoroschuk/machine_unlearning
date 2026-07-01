@@ -177,7 +177,6 @@ def main(cfg):
     # steps_per_epoch = 1 практически отключает разогрев в обучении, но наверное есть смысл делать steps_per_epoch > 1, 
     # т.к. это определит число шагов в warmup (эвристика), // = целочисленное деление
     steps_per_epoch = len(torch_format_dataset)//(batch_size*gradient_accumulation_steps*num_devices)
-    # max_steps тоже эвристика
     max_steps = int(num_epochs*len(torch_format_dataset))//(batch_size*gradient_accumulation_steps*num_devices)
     print(f"max_steps: {max_steps}")
     print(f"steps_per_epoch: {steps_per_epoch}")

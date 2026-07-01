@@ -111,6 +111,7 @@ class CustomFamilyTrainerForgetting(Trainer):
         if self.loss_type == "ga":
             # это input_ids, labels, attention_mask только по токенам qa-пары (единственных поданных в модель данных то есть)
             input_ids, labels, attention_mask = forget_inputs
+            # forward pass 1
             outputs = model(
                 input_ids, labels=labels, attention_mask=attention_mask
             )  # model менялась только под токены конкретной QA-пары
@@ -133,6 +134,7 @@ class CustomFamilyTrainerForgetting(Trainer):
             input_ids, labels, attention_mask, ref_seq_logps = forget_inputs  # ref_seq_logps придут от data_module.py, forget.py
             # важно не передавать labels, чтобы не посчитался дефолтный loss, если они переданы
             # строка ниже же обеспечивает только forward pass для получения предсказаний и возвращает только logits предсказаний
+            # forward pass 1
             outputs = model(input_ids, attention_mask=attention_mask)
             cur_seq_logps = self._get_sequence_log_probs(outputs.logits, labels)
             ref_seq_logps = ref_seq_logps.to(cur_seq_logps.device)  # ref_seq_logps из deepspeed_ref_model в forget.py
@@ -142,6 +144,7 @@ class CustomFamilyTrainerForgetting(Trainer):
         
         if retain_inputs is not None:
             retain_input_ids, retain_labels, retain_attention_mask = retain_inputs
+            # forward pass 2
             retain_outputs = model(
                 retain_input_ids, labels=retain_labels, attention_mask=retain_attention_mask
             )
