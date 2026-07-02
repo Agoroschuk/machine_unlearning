@@ -1,6 +1,7 @@
 # Evaluating Deep Unlearning in Large Language Model
 
-This is the official github page for the paper [*Evaluating Deep Unlearning in Large Language Model*](https://arxiv.org/abs/2410.15153). This repository provides the code for using the benchmark EDU-RELAT, the evaluation code given any unlearning results, and the scripts of running four unlearning methods presented in the paper.
+This is the github page for inverstigation of the machine unlearning in large language models.
+This repository provides the code for using the synthetic dataset EDU-RELAT, the evaluation code given any unlearning results, and the scripts of running four unlearning methods presented in the paper.
 
 ## Preparation
 1. Install the environment
