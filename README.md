@@ -62,27 +62,13 @@ python calculate_recall_and_acc.py --unlearn_data_id $unlearn_target_data_id --i
 ```
 We provide `example_for_evaluation/relationships_correct.pt` and `example_for_evaluation/biographies_correct.pt` as an example for calculating the recall and accuracy, by running `python calculate_recall_and_acc.py --unlearn_data_id 1 --input_dir example_for_evaluation`.
 
-## Reproducing the results of unlearning methods in the paper
+## Reproducing the results of unlearning methods
 In the paper, we tested with four unlearning methods: `gradient ascent (GA)`, `Negative preference optimization  (NPO)`, `task vector (TV)`, `who's harry potter (WHP)`. The hyperparameter list of each method is saved in `config/model_config.yaml`. The related scripts are saved in `./unlearning_methods`. By set any `unlearning_method` (`ga`, `npo`, `tv`, `whp`), any `target_model` (`phi`, `gpt2-xl`, `llama2-7b`, `llama3-8b`), and `unlearn_target_data_id` (0-54), the script is
 ```
 bash unlearning_methods/${unlearning_methods}.sh $target_model $unlearn_target_data_id
 ```
 After running unlearning methods, the code will save two 0-1 vectors `relationships_correct.pt` and `biographies_correct.pt` under the directory `scripts_unlearning_checkpoint/${unlearning_methods}/${target_model}/${unlearn_target_data_id}/checkpoint-${hyperparameter}`. Then run the script in the above section to calculate the recall and accuracy.
 
-## Citing Our Work
-
-If you find our codebase and dataset beneficial, please cite our work:
-```
-@misc{wu2024evaluatingdeepunlearninglarge,
-      title={Evaluating Deep Unlearning in Large Language Models}, 
-      author={Ruihan Wu and Chhavi Yadav and Russ Salakhutdinov and Kamalika Chaudhuri},
-      year={2024},
-      eprint={2410.15153},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL},
-      url={https://arxiv.org/abs/2410.15153}, 
-}
-```
-
 ## Acknowledgment
-We would like to thank the authors of [TOFU](https://arxiv.org/abs/2401.06121) and [MUSE](https://arxiv.org/abs/2407.06460). Our code is built upon the github repository of them.
+I would like to thank the authors of [deep_unlearning](https://arxiv.org/abs/2410.15153), [NPO]. This code is built upon the github repository of them.
+
