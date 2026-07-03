@@ -5,7 +5,7 @@ from transformers import TrainerCallback
 
 class WeightChangeTimerCallback(TrainerCallback):
     """
-    Измерение времени forward + loss + backward + optimizer update + scheduler update внутри training step
+    Time measuring during forward + loss + backward + optimizer update + scheduler update inside training step
 
     forget.py: weight_change_timing_file
         ↓
@@ -13,7 +13,7 @@ class WeightChangeTimerCallback(TrainerCallback):
             ↓
     WeightChangeTimerCallback: self.output_file
             ↓
-    weight_change_seconds.tmp на диске
+    creation of weight_change_seconds.tmp on google drive
     """
     def __init__(self, output_file, sync_cuda=True):
         self.output_file = output_file
@@ -23,13 +23,11 @@ class WeightChangeTimerCallback(TrainerCallback):
 
     def _sync(self):
         if self.sync_cuda and torch.cuda.is_available():
-            # нужно, чтобы не занизить время измерения этапов из-за асинхронности CUDA-операций, 
-            # т.е. чтобы дождаться завершения стадии, измерить реальное время вычислений на gpu, а не время постановки в очередь
             torch.cuda.synchronize()
 
     def on_step_begin(self, args, state, control, **kwargs):
         self._sync()
-        self._step_start = time.perf_counter() # аналог time.time()
+        self._step_start = time.perf_counter() # approx. as time.time()
     
     def on_step_end(self, args, state, control, **kwargs):
         self._sync()

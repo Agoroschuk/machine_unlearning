@@ -71,5 +71,5 @@ bash unlearning_methods/${unlearning_methods}.sh $target_model $unlearn_target_d
 After running unlearning methods, the code will save two 0-1 vectors `relationships_correct.pt` and `biographies_correct.pt` under the directory `scripts_unlearning_checkpoint/${unlearning_methods}/${target_model}/${unlearn_target_data_id}/checkpoint-${hyperparameter}`. Then run the script in the above section to calculate the recall and accuracy.
 
 ## Acknowledgment
-I would like to thank the authors of [deep_unlearning](https://arxiv.org/abs/2410.15153), [NPO]. This code is built upon the github repository of them.
+I would like to thank the authors of [deep_unlearning](https://arxiv.org/abs/2410.15153), [NPO](https://arxiv.org/abs/2404.05868). This code is built upon the github repository of them.
 

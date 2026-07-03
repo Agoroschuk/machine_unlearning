@@ -4,7 +4,7 @@ import gc
 import torch
 import numpy as np
 # pip show vllm (for info), https://github.com/vllm-project/vllm
-from vllm import LLM  # vllm - высокопроизводительная библиотека для инференса больших языковых моделей, предположительно, быстрее, чем hugging face
+from vllm import LLM
 from vllm.distributed.parallel_state import destroy_model_parallel
 from pathlib import Path
 from datasets import Dataset
@@ -12,17 +12,14 @@ from datasets import Dataset
 from utils import get_model_identifiers_from_yaml
 from evaluate_util import eval_qa_vllm
 
-# проходит по всем чекпоинтам в пределах unlearn_data_id, при дорасчете результатов не учитывается в коде, что досчитать нужно лишь кусок
-# стоит подавать сюда список id для дорасчета
-
 parser = argparse.ArgumentParser(description='evaluate llm by vllm')
 parser.add_argument('--curr_save_dir', type=str, default=None)
 parser.add_argument('--model_family', type=str, default="llama2-7b")
 parser.add_argument('--clean_cache', type=str, default="false")
-parser.add_argument('--config_path', type=str, default="config/") # т.к. config_path из .sh файла не передан, значение его берется из default
+parser.add_argument('--config_path', type=str, default="config/")
 args = parser.parse_args()
 
-# curr_save_dir = конкретный чекпоинт в save_path=/content/drive/MyDrive/Unlearning/unlearning_checkpoint/ga/${model}/${unlearn_data_id}
+# curr_save_dir = checkpoint_path in save_path=/content/drive/MyDrive/Unlearning/unlearning_checkpoint/ga/${model}/${unlearn_data_id}
 curr_save_dir = args.curr_save_dir
 # model_cfg - словарь с параметрами модели из model_config.yaml
 model_cfg = get_model_identifiers_from_yaml(args.model_family, config_path=args.config_path)
@@ -36,34 +33,27 @@ eval_dataset_name_list = ["relationships_", "biographies_"]
 
 #remove local model
 if args.clean_cache == "true":
-    import shutil # (shell utilities, python модуль для высокоуровневых файловых операций)
-    shutil.rmtree(curr_save_dir) # удаление всей папки curr_save_dir и всего содержимого
+    import shutil
+    shutil.rmtree(curr_save_dir)
 
-Path(curr_save_dir).mkdir(parents=True, exist_ok=True) #parents=True значит, что если промежуточные папки не созданы, они создадутся автоматически
+Path(curr_save_dir).mkdir(parents=True, exist_ok=True)
 
-# Здесь происходит инференс чекпоинтов на разных стадиях забывания (получение biographies/relationships_correct.pt)
-# Мы смотрим, как сохранились relationships и biographies после забаывания конкретного факта из relationships
 for eval_dataset, eval_dataset_name in zip(eval_dataset_list, eval_dataset_name_list):
     with torch.no_grad():
-        # correct - булев массив размером 400 (relationships) и 300(biographies), где True, если факт сохранился (в сгенерированном ответе есть правильный ответ)
-        # responses - vllm объекты с подробностями о том, как на них работало забывание (ценно)
+        # correct - булев массив, где True, если факт сохранился (т.е. если в сгенерированном ответе есть правильный ответ)
         correct, responses = eval_qa_vllm(
-            eval_dataset, # факты из биографии (300) или взаимоотношения(400) в виде вопрос-ответ 
-            model_eval, # готовая модель из чекпоинта для генерации текста, адаптированная к быстрой генерации текста с пом. vllm библиотеки 
+            eval_dataset,
+            model_eval, # готовая модель из чекпоинта для генерации текста, адаптированная к быстрой генерации текста с пом. vllm 
             qk="question4", 
             ak="answer4", 
             question_start_tag=model_cfg["question_start_tag"], 
             question_end_tag=model_cfg["question_end_tag"], 
             answer_tag=model_cfg["answer_tag"])
         # eval_qa_vllm формирует промпт с тегами и генерирует ответ с помощью модели model_eval
-        # сохранение ответа True/False (True = модель дала правильный ответ)
         torch.save(correct, f"{curr_save_dir}/{eval_dataset_name}correct.pt")
-        # подробные результаты генерации 
+        # generation format:
         # ['request_id', 'prompt', 'prompt_token_ids', 'prompt_logprobs', 'outputs', 'finished', 'metrics', 'lora_request', 'encoder_prompt', 'encoder_prompt_token_ids']
         torch.save(responses, f"{curr_save_dir}/{eval_dataset_name}responses.pt")
-        # если проводить параллель с calculate_recall_and_acc.py, то правильно считать таким способом только accuracy для biographies, для relationships логика сложнее
-        # и самое важное здесь = relationships_correct.pt = булев массив из того, что не удалилось в результате unlearning
-        # при сопоставлении его с minimal_set для забывания этого конкретного факта можем выяснить acc_relationships, recall_relationships
         acc = np.asarray(correct).astype(np.float32).mean()
         print(f"{eval_dataset}accuracy: {acc}")
 

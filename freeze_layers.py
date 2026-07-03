@@ -1,20 +1,19 @@
 import math
-
-# Возможно, логика заморозки будет усложнена
+# based on https://arxiv.org/abs/2403.17887
 def freeze_transformer_blocks(model, freeze_ratio):
     """
-    Замораживает долю самых глубоких transformer-блоков, не замораживая
-    самый последний блок.
+    Freezing deep transformer-blocks, excluding the deepest(last).
 
     Parameters:
     - model: loaded pretrained llm
     - freeze_ratio: fraction of transformer layers to freeze, must be in [0, 1]
 
-    Логика:
-    - если всего 48 блоков, замораживаем из первых 47 блоков
-    - при 25%: floor(47 * 0.25) = 11 блоков
-    - замораживаются самые глубокие из этих 47, то есть блоки перед последним
-    - самый последний трансформерный блок всегда остается trainable
+    Logic:
+    - if we have 48 blocks, we consider freezing from first 47 blocks
+    - if freeze_ratio is 25%: floor(47 * 0.25) = 11 blocks will be freezed
+    - freezing the deepest blocks from this 47
+    - the last transformer block always remain trainable
+    - saving advanced metadata about freezed blocks provided
     """
     model_type = getattr(model.config, "model_type", "").lower()
 
