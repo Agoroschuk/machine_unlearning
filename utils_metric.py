@@ -1,3 +1,4 @@
+# Code from investigation: https://arxiv.org/abs/2410.15153
 import os
 import torch
 import numpy as np
@@ -8,8 +9,7 @@ from copy import deepcopy
 # minimal_set включает сам unlearn_data_id
 def check_if_in_deductive_closure(unlearn_data_id, minimal_set, edge_list, edge_type_list, dc_edge_list, dc_edge_type_list, rule_list):
     """
-    Функция проверяет, можно ли вывести целевой факт из минимального мн-ва minimal_set после удаления оттуда data_id. 
-    Передаваемое minimal_set уже построено по конкретному unlearn_data_id для забывания
+    Function checks if target fact can be deduced from dataset after deleting concrete data_id
     """
     # создается мн-во из id фактов в minimal_set + id выведенных искуственно с пом. get_dc_edges_list фактов (range(start, stop)), напр. range(400, 410)
     cur_minimal_set = set(list(deepcopy(minimal_set)) + list(range(len(edge_list), len(dc_edge_list))))
@@ -71,11 +71,8 @@ def check_if_in_deductive_closure(unlearn_data_id, minimal_set, edge_list, edge_
     
 def get_minimal_nec_unlearn_and_not_included_unlearn(unlearn_data_id, edge_list, edge_type_list, dc_edge_list, dc_edge_type_list, rule_list, seed=0):
     """
-    Создает минимальное множество фактов для глубокого забывания целевого факта. То есть ищет факты, без которых
-    целевой факт не вывести. Множество минимально, т.к. не содержит все вообще факты для вывода целевого,
-    а содержит их случайный минимальный набор. Для поиска случ. мин. набора в коде прим-ся random.sample
-
-    В идеале стоит разобрать на реальном ulearn_data_id
+    Creates minimal unlearn set for unlearn_data_id
+    Random.sample is used for searching random minimal_set
     """
     np.random.seed(seed)
     random.seed(seed)
@@ -85,7 +82,7 @@ def get_minimal_nec_unlearn_and_not_included_unlearn(unlearn_data_id, edge_list,
 
     
     #Find a valid unlearning set expanded from the given unlearning result.
-    while len(minimal_set_unverified) >= 1: # а когда мы выйдем вообще из этого цикла?
+    while len(minimal_set_unverified) >= 1: 
         # print(minimal_set_unverified)
         # sorted, т.к. random.sample требует упорядоченность, потом список из 1 эл-та и сам эл-т [0]
         # во время второго прохода здесь 1 случайный id из цепочки причин
@@ -221,9 +218,9 @@ def get_edge_id(edge, edge_list):
 # but for all 400 relationships 
 def get_deductive_closure(edge_list, edge_type_list, rule_list, person_list):
     """
-    Если я правильно понимаю, функция работает, пока не найдет все факты, которые только можно логически вывести из уже имеющихся
-    И в dc_edge_list складывает все возможные связи (как старые, так и снова выведенные), (69, 67)
-    В dc_edge_type_list аналогично хранятся названия типов связей, 'father'
+    Searching for all facts that can be deduced from current list of facts
+    dc_edge_list contains all edges in format (69, 67)
+    dc_edge_type_list contains corresponding vertices, ex. 'father'
     """
     dc_edge_list, dc_edge_type_list = deepcopy(edge_list), deepcopy(edge_type_list)
     new_edge_list = []

@@ -10,7 +10,7 @@ import deepspeed
 
 from weight_change_timer import WeightChangeTimerCallback
 
-class CustomTrainer(Trainer):  # должен подходить для обычного обучения и finetuning
+class CustomTrainer(Trainer):
     def compute_loss(self, model, inputs, return_outputs=False):
         # labels = те же токены, что input_ids, но со сдвигом на 1 позицию вперед, но shift под капотом (по input_ids предсказать labels, грубо говоря)
         input_ids, labels, attention_mask = inputs
@@ -64,7 +64,7 @@ class CustomFamilyTrainerForgetting(Trainer):
         self.weight_change_timing_file = kwargs.pop("weight_change_timing_file", None)
         
         self.last_epoch = 0
-        # наследование от родительского класса нужно, чтобы все параметры CustomFamilyTrainerForgetting инициализировались
+        # наследование от родительского класса, чтобы все параметры CustomFamilyTrainerForgetting инициализировались
         # Чтобы работало то, что наследуется от Trainer (а по сути это все, кроме кастомных forget_loss, save_dir, save_step_pattern)
         # передача оставшихся аргументов
         super(CustomFamilyTrainerForgetting, self).__init__(*args, **kwargs)
@@ -88,7 +88,7 @@ class CustomFamilyTrainerForgetting(Trainer):
         safe_labels = shift_labels.masked_fill(~valid_mask, 0)  # заполняем токены вопроса, которые замаскированы как -100, нулями
 
         # dim=-1 <=> последняя размерность тензора, vocab_size для shift_logits, log_softmax по словарю, чтобы получить logp токена по словарю
-        # выбираем логарифмическую вероятность правильного токена (для определения правильного safe_labels)
+        # выбираем логарифмическую вероятность правильного токена (для определения правильного label из safe_labels)
         token_log_probs = F.log_softmax(shift_logits, dim=-1).gather(
                 dim=-1,  # gather (сбор по индексу в заданной оси) по последней оси vocab
                 index=safe_labels.unsqueeze(-1),  # задание индекса, unsqueeze(-1) добавляет размерность 1 в конце [batch, seq_len-1] -> [batch, seq_len-1, 1]
@@ -98,12 +98,12 @@ class CustomFamilyTrainerForgetting(Trainer):
         token_log_probs = (token_log_probs * valid_mask)  # masked токены не вносят вклад, т.к. на их местах стоят нули, -100 заменили на 0 из-за gather
         return token_log_probs.sum(dim=-1)  # [batch]
 
-    # HF Trainer заберет мой кастомный лосс, т.к. CustomFamilyTrainerForgetting наследуется от Trainer
+    # HF Trainer переопределится кастомным лоссом, т.к. CustomFamilyTrainerForgetting наследуется от Trainer
     # hf subclass for custom losses etc: https://huggingface.co/docs/transformers/en/trainer_customize + more details in custom_losses.ipynb in colab
     def compute_loss(self, model, inputs, return_outputs=False):
 
         has_retain = isinstance(inputs, dict) and "retain" in inputs
-
+        # not the most optimal due to double forward pass (retain + forget), can be rewrited
         forget_inputs = inputs["forget"] if has_retain else inputs
         retain_inputs = inputs["retain"] if has_retain else None
 
@@ -118,13 +118,9 @@ class CustomFamilyTrainerForgetting(Trainer):
             forget_loss = outputs.loss
             forget_loss = forget_loss * -1  # за счет *-1 мы увеличиваем потери
             loss = forget_loss
-            # в GD было бы
-            # input_ids, labels, attention_mask = inputs
-            # outputs = model(input_ids, labels=labels, attention_mask=attention_mask)
-            # loss = outputs.loss
 
         elif self.loss_type == "npo":
-            # минутка размерностей для понимания
+            # размерности для понимания
             # inputs: [batch_size, seq_len]
             # outputs.logits: [batch_size, seq_len, vocab_size]
             # _seq_logps: [batch_size]

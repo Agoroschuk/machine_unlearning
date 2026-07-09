@@ -1,15 +1,15 @@
-# Система для работы с семейными отношениями через логические правила
+# Code from investigation: https://arxiv.org/abs/2410.15153
 import numpy as np
 from copy import deepcopy
 
 class Person:
     """
-    Хранит данные о людях
+    Contains
     """
     def __init__(self):
         self.name = None
         self.gender = gender
-        self.father = None # ссылка на отца
+        self.father = None
         self.mother = None
         self.children = None
         self.husband = None

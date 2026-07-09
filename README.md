@@ -1,4 +1,4 @@
-# Evaluating Deep Unlearning in Large Language Model
+# Evaluating Machine Unlearning in Large Language Model
 
 This is the github page for inverstigation of the machine unlearning in large language models.
 This repository provides the code for using the synthetic dataset EDU-RELAT, the evaluation code given any unlearning results, and the scripts of running four unlearning methods presented in the paper.
@@ -18,7 +18,7 @@ cd lm-evaluation-harness
 pip install -e .
 ```
 
-3. Download the model checkpoints from this [link](https://drive.google.com/drive/folders/1jZpmHHphXihdXvyD0xAhr3wjtO9qvJy-?usp=sharing) that is finetuned on our synthetic data `EDU-RELAT`. The layout would be
+3. Download the model checkpoints from this [link](https://drive.google.com/drive/folders/1vnLqVu3J57bjngzti2xANqQeaHNAm-43) that is finetuned on our synthetic data `EDU-RELAT`. The layout would be
 ```
 deep_unlearning/
     ft_model_checkpoint/
